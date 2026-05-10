@@ -57,6 +57,7 @@
       user-select: none;
       -webkit-tap-highlight-color: transparent;
       padding: 20px 0;
+      overscroll-behavior: none;
     }
 
     #app-container {
@@ -233,6 +234,7 @@
         wrapper.style.paddingBottom = '150%'; W = containerW; H = containerW * 1.5;
       }
       PR = window.devicePixelRatio || 1;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       canvas.width = W * PR; canvas.height = H * PR;
       ctx.scale(PR, PR);
       if (pieces.length === 0) initGame();
@@ -327,22 +329,38 @@
 
     function handleInputDown(e) {
       if (e.cancelable) e.preventDefault();
-      if (phase !== 'idle' && phase !== 'setup') return;
-      if (phase === 'idle' && gameMode === 'pva' && currentTeam === 'red') return;
+      if (phase !== 'idle' && phase !== 'setup' && phase !== 'aiming') return;
+      if ((phase === 'idle' || phase === 'aiming') && gameMode === 'pva' && currentTeam === 'red') return;
       
       const m = getMouse(e);
       let closest = null, minD = Infinity;
       pieces.forEach(p => {
         if (phase === 'setup' && p.team !== 'blue') return;
-        if (phase === 'idle' && p.team !== currentTeam) return;
+        if ((phase === 'idle' || phase === 'aiming') && p.team !== currentTeam) return;
         
         const d = Math.hypot(p.x - m.x, p.y - m.y);
         if (d < minD) { minD = d; closest = p; }
       });
-      if (closest && minD < closest.r * 3.5) {
+      
+      if (closest && minD < closest.r * 5) {
+        if (phase === 'aiming' && selectedPiece === closest) {
+          selectedPiece = null;
+          phase = 'idle';
+          updateUI();
+          draw();
+          return;
+        }
         selectedPiece = closest; mousePos = m;
         if (phase !== 'setup') phase = 'aiming';
         updateUI();
+        draw();
+      } else {
+        if (phase === 'aiming') {
+          selectedPiece = null;
+          phase = 'idle';
+          updateUI();
+          draw();
+        }
       }
     }
 
@@ -372,7 +390,7 @@
           selectedPiece = null;
         } else if (phase === 'aiming') {
           const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y, d = Math.hypot(dx, dy);
-          const cancelRadius = selectedPiece.r * 2.5;
+          const cancelRadius = selectedPiece.r * 2;
           if (d > cancelRadius) {
             executeShot(selectedPiece, dx, dy, d);
           } else {
@@ -391,7 +409,8 @@
     canvas.addEventListener('touchend', handleInputUp, { passive: false });
 
     function executeShot(p, dx, dy, d) {
-      const pow = Math.min(d, Math.min(W,H) * 0.4) / (Math.min(W,H) * 0.4);
+      const maxDist = Math.min(W,H) * 0.55;
+      const pow = Math.min(d, maxDist) / maxDist;
       const spd = pow * W * SPEED_SCALE;
       p.vx = (dx / d) * spd; p.vy = (dy / d) * spd;
       phase = 'animating'; lastHitBy = p.id; ballHitByShooter = false; passTriggeredThisShot = false;
@@ -518,10 +537,10 @@
     function drawAimLine() {
       const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y;
       const angle = Math.atan2(dy, dx), dist = Math.hypot(dx, dy);
-      const maxDist = Math.min(W,H)*0.4;
+      const maxDist = Math.min(W,H)*0.55;
       const power = Math.min(dist, maxDist) / maxDist;
       const len = power * 120;
-      const cancelRadius = selectedPiece.r * 2.5;
+      const cancelRadius = selectedPiece.r * 2;
 
       // Draw Cancel Zone
       ctx.beginPath();
