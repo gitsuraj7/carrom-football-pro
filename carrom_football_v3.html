@@ -5,44 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Carrom Football Pro — The Ultimate Sports Physics Game</title>
   
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="Experience the ultimate Carrom Football Pro edition. Play local 2-player or vs AI with realistic physics, strategic passing, and high-fidelity graphics.">
-  <meta name="keywords" content="Carrom Football, Sports Game, HTML5 Game, Physics Game, Multiplayer Game, AI Football, Carrom Pro">
-  <meta name="author" content="Antigravity Sports">
-  <meta name="robots" content="index, follow">
-
-  <!-- Open Graph / Facebook -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://football-carrom-pro.vercel.app/">
-  <meta property="og:title" content="Carrom Football Pro — Ultimate Edition">
-  <meta property="og:description" content="Play the most advanced carrom-style football game in your browser. Features 2-player local mode, 3 difficulty AI levels, and a strategic passing system.">
-  <meta property="og:image" content="https://raw.githubusercontent.com/itzzs/football/main/preview.png">
-
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://football-carrom-pro.vercel.app/">
-  <meta property="twitter:title" content="Carrom Football Pro — Ultimate Edition">
-  <meta property="twitter:description" content="Realistic physics meets football in this ultimate carrom-style sports game.">
-  <meta property="twitter:image" content="https://raw.githubusercontent.com/itzzs/football/main/preview.png">
-
-  <!-- Mobile App Features -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0f172a">
-  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/itzzs/football/main/icon.png">
-
   <style>
     :root {
-      --color-bg: #fff5f2; /* Light Whitey Salmon */
+      --color-bg: #fff5f2;
       --color-board: #166534;
       --color-board-dark: #14532d;
-      --color-blue: #4fc3f7; /* Light Blue */
-      --color-red: #ff8a65;  /* Coral/Salmon Red */
+      --color-blue: #3b82f6;
+      --color-red: #ef4444;
       --color-text: #1e293b;
-      --font-sans: 'Outfit', 'Inter', sans-serif;
+      --font-sans: 'Inter', system-ui, sans-serif;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
     
     body { 
       background: var(--color-bg);
@@ -61,50 +33,37 @@
     }
 
     #app-container {
-      width: 100%;
-      max-width: 850px;
-      padding: 0 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+      width: 100%; max-width: 1000px; padding: 0 15px; display: flex; flex-direction: column; align-items: center;
     }
 
     #header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 10px;
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
     }
 
     .pill-score {
-      background: #1e293b;
-      padding: 8px 24px;
-      border-radius: 50px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-      border: 2px solid rgba(255,255,255,0.1);
+      display: flex; align-items: center; background: #fff; border: 4px solid #1e293b;
+      border-radius: 50px; overflow: hidden; box-shadow: 0 6px 0 #1e293b;
     }
-    .pill-label { font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
-    .pill-value { font-size: 24px; font-weight: 900; }
+
+    .pill-label { background: #1e293b; color: #fff; padding: 10px 16px; font-weight: 800; font-size: 16px; letter-spacing: 1px; }
+    .pill-value { padding: 10px 24px; font-weight: 900; font-size: 26px; min-width: 60px; text-align: center; }
     .score-blue { color: var(--color-blue); }
     .score-red { color: var(--color-red); }
 
     #status-container { text-align: center; }
-    #status-msg { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #1e293b; }
-    #turn-indicator { font-size: 11px; font-weight: 700; color: rgba(0,0,0,0.5); text-transform: uppercase; }
+    #status-msg { font-size: 28px; font-weight: 900; text-transform: uppercase; margin-bottom: -4px; transition: color 0.3s; }
+    #turn-indicator { font-size: 14px; font-weight: 700; color: #64748b; letter-spacing: 2px; }
 
     #game-board-wrapper {
-      position: relative;
-      width: 100%;
-      border-radius: 20px;
-      overflow: hidden;
+      position: relative; width: 100%; max-height: calc(100vh - 120px);
+      border-radius: 24px; overflow: hidden;
       border: 8px solid #1e293b;
       background: #14532d;
       box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-      transition: padding-bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
+    
+    .vertical-board { min-height: 70vh; }
 
     #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 
@@ -123,13 +82,14 @@
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: #1e293b; color: #fff; padding: 15px 30px; border-radius: 50px;
       font-size: 20px; font-weight: 900; opacity: 0; transition: all 0.4s;
-      z-index: 1000; border: 4px solid var(--color-blue);
+      z-index: 1000; border: 4px solid var(--color-blue); pointer-events: none;
     }
 
-    #menu-overlay {
+    #menu-overlay, #toss-overlay {
       position: absolute; inset: 0; background: rgba(255, 245, 242, 0.95);
       z-index: 100; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s;
     }
+    
     #menu-card {
       background: #fff; border: 6px solid #1e293b;
       padding: 40px; border-radius: 32px; text-align: center; width: 90%; max-width: 400px;
@@ -138,7 +98,25 @@
     #menu-card h1 { font-size: 40px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 20px; }
     .menu-section { display: flex; flex-direction: column; gap: 12px; }
     .ai-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    #menu-overlay.hidden { opacity: 0; pointer-events: none; }
+    .hidden { opacity: 0 !important; pointer-events: none !important; }
+    
+    #toss-coin {
+      width: 120px; height: 120px; background: #fbbf24; border: 8px solid #b45309; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 900; color: #b45309;
+      box-shadow: 0 10px 0 #b45309; margin: 0 auto 20px auto;
+    }
+    .flipping { animation: coinFlip 0.2s infinite alternate ease-in-out; }
+    @keyframes coinFlip { 0% { transform: scaleY(1); } 100% { transform: scaleY(0.1); } }
+    
+    #toss-result-text { font-size: 32px; font-weight: 900; text-transform: uppercase; color: #1e293b; margin-top: 15px;}
+
+    @media (max-width: 480px) {
+      #status-msg { font-size: 24px; }
+      .pill-value { font-size: 20px; padding: 8px 16px; }
+      .pill-label { font-size: 14px; padding: 8px 12px; }
+      #controls button { padding: 12px; font-size: 24px; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+      #btn-ready { width: auto !important; border-radius: 50px !important; font-size: 16px !important; padding: 12px 24px !important; }
+    }
   </style>
 </head>
 <body>
@@ -161,32 +139,40 @@
 
     <div id="game-board-wrapper">
       <div id="pass-toast">EXTRA TURN!</div>
+      
+      <div id="toss-overlay" class="hidden">
+        <div style="text-align: center;">
+          <div id="toss-coin">P1</div>
+          <div id="toss-result-text">COIN TOSS</div>
+        </div>
+      </div>
+
       <div id="menu-overlay">
         <div id="menu-card">
           <h1>CARROM PRO</h1>
           <div class="menu-section">
-            <button class="primary" style="width:100%;" onclick="startGame('pvp')">Local 2 Players</button>
+            <button class="primary" style="width:100%; border-radius: 50px; font-size:14px;" onclick="startGame('pvp')">Local 2 Players</button>
             <div style="font-size: 12px; color: #64748b; font-weight: 900; margin-top: 15px;">AI DIFFICULTY</div>
             <div class="ai-buttons">
-              <button onclick="startGame('pva', 'easy')">Easy</button>
-              <button onclick="startGame('pva', 'medium')">Med</button>
-              <button onclick="startGame('pva', 'hard')">Hard</button>
+              <button onclick="startGame('pva', 'easy')" style="border-radius: 50px; font-size:14px;">Easy</button>
+              <button onclick="startGame('pva', 'medium')" style="border-radius: 50px; font-size:14px;">Med</button>
+              <button onclick="startGame('pva', 'hard')" style="border-radius: 50px; font-size:14px;">Hard</button>
             </div>
             <hr style="border:0; border-top:4px solid #f1f5f9; margin: 20px 0;">
-            <button onclick="toggleOrientation()" style="width:100%;">
+            <button onclick="toggleOrientation()" style="width:100%; border-radius: 50px; font-size:14px;">
               Switch to <span id="toggle-label">Vertical</span>
             </button>
           </div>
         </div>
       </div>
-      <canvas id="game-canvas"></canvas>
+      <canvas id="game-canvas" style="touch-action: none;"></canvas>
     </div>
 
     <div id="controls">
       <button id="btn-ready" onclick="finishSetup()" style="display:none; background: #10b981; box-shadow: 0 4px 0 #059669;">READY</button>
-      <button onclick="showMenu()">MENU</button>
-      <button onclick="toggleOrientation()">ROTATE</button>
-      <button onclick="resetGame()">RESET</button>
+      <button id="btn-menu" onclick="showMenu()">⚙️</button>
+      <button id="btn-rotate" onclick="toggleOrientation()">🔄</button>
+      <button id="btn-reset" onclick="resetGame()">🗑️</button>
     </div>
   </div>
 
@@ -196,6 +182,9 @@
     const wrapper = document.getElementById('game-board-wrapper');
     const passToast = document.getElementById('pass-toast');
     const menuOverlay = document.getElementById('menu-overlay');
+    const tossOverlay = document.getElementById('toss-overlay');
+    const tossCoin = document.getElementById('toss-coin');
+    const tossResultText = document.getElementById('toss-result-text');
 
     const FRICTION = 0.980;
     const RESTITUTION = 0.85;
@@ -219,15 +208,34 @@
     let gameMode = 'pvp';
     let aiDifficulty = 'medium';
     let orientation = 'horizontal'; 
+    let tossWinner = null;
+    let reqFrameId = null;
+    let shotArrows = [];
+    let goalkeeperClang = { blue: 0, red: 0 };
+
+    const isTouchDevice = navigator.maxTouchPoints > 0;
+    if (isTouchDevice && window.innerWidth <= 480) {
+      document.getElementById('btn-menu').textContent = '⚙️';
+      document.getElementById('btn-rotate').textContent = '🔄';
+      document.getElementById('btn-reset').textContent = '🗑️';
+    } else {
+      document.getElementById('btn-menu').textContent = 'MENU';
+      document.getElementById('btn-rotate').textContent = 'ROTATE';
+      document.getElementById('btn-reset').textContent = 'RESET';
+    }
 
     function toggleOrientation() {
       orientation = orientation === 'horizontal' ? 'vertical' : 'horizontal';
       document.getElementById('toggle-label').textContent = orientation === 'horizontal' ? 'Vertical' : 'Horizontal';
+      if (orientation === 'vertical') wrapper.classList.add('vertical-board');
+      else wrapper.classList.remove('vertical-board');
       resize(); resetPositions();
     }
 
     function resize() {
-      const containerW = wrapper.parentElement.getBoundingClientRect().width;
+      const rect = wrapper.getBoundingClientRect();
+      const containerW = rect.width;
+      
       if (orientation === 'horizontal') {
         wrapper.style.paddingBottom = '60%'; W = containerW; H = containerW * 0.6;
       } else {
@@ -236,21 +244,55 @@
       PR = window.devicePixelRatio || 1;
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       canvas.width = W * PR; canvas.height = H * PR;
-      ctx.scale(PR, PR);
+      ctx.setTransform(PR, 0, 0, PR, 0, 0);
       if (pieces.length === 0) initGame();
       draw();
     }
 
     function startGame(mode, difficulty) {
       gameMode = mode; if (difficulty) aiDifficulty = difficulty;
-      menuOverlay.classList.add('hidden'); initGame(true);
+      menuOverlay.classList.add('hidden'); 
+      scores = { blue: 0, red: 0 };
+      runToss();
+    }
+    
+    function resetGame() {
+       scores = { blue: 0, red: 0 };
+       runToss();
+    }
+
+    function runToss() {
+      phase = 'toss';
+      tossOverlay.classList.remove('hidden');
+      tossCoin.classList.add('flipping');
+      tossResultText.textContent = 'COIN TOSS...';
+      
+      let flipInterval = setInterval(() => {
+        tossCoin.textContent = Math.random() > 0.5 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI');
+      }, 100);
+
+      setTimeout(() => {
+        clearInterval(flipInterval);
+        tossCoin.classList.remove('flipping');
+        const winnerIsP1 = Math.random() > 0.5;
+        tossWinner = winnerIsP1 ? 'blue' : 'red';
+        tossCoin.textContent = winnerIsP1 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI');
+        tossResultText.textContent = (winnerIsP1 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI')) + ' KICKS OFF';
+        
+        setTimeout(() => {
+          tossOverlay.classList.add('hidden');
+          currentTeam = tossWinner;
+          resetPositions(true);
+        }, 1000);
+      }, 1500);
     }
 
     function showMenu() { menuOverlay.classList.remove('hidden'); }
 
-    function initGame(doSetup = false) { scores = { blue: 0, red: 0 }; resetPositions(doSetup); }
+    function initGame() { scores = { blue: 0, red: 0 }; resetPositions(true); }
 
     function resetPositions(doSetup = false) {
+      if (reqFrameId) cancelAnimationFrame(reqFrameId);
       const pr = Math.min(W, H) * 0.062;
       pieces = [];
       if (orientation === 'horizontal') {
@@ -266,7 +308,7 @@
       }
       ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: Math.min(W, H) * 0.042 };
       
-      currentTeam = 'blue'; passCount = 0; piecesPassedThisTurn.clear();
+      passCount = 0; piecesPassedThisTurn.clear(); shotArrows = [];
       
       if (doSetup) {
         phase = 'setup';
@@ -275,8 +317,10 @@
       } else {
         phase = 'idle';
         document.getElementById('btn-ready').style.display = 'none';
+        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
       }
       updateUI();
+      draw();
     }
 
     function randomizeAIFormation() {
@@ -296,6 +340,7 @@
       document.getElementById('btn-ready').style.display = 'none';
       updateUI();
       draw();
+      if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
     }
 
     function updateUI() {
@@ -303,8 +348,13 @@
       document.getElementById('score-red').textContent = scores.red;
       const status = document.getElementById('status-msg');
       const indicator = document.getElementById('turn-indicator');
-      status.textContent = currentTeam === 'blue' ? "P1'S TURN" : (gameMode === 'pvp' ? "P2'S TURN" : "AI THINKING...");
+      
+      let teamName = currentTeam === 'blue' ? "P1" : (gameMode === 'pvp' ? "P2" : "AI");
+      status.textContent = phase === 'setup' ? teamName + "'S SETUP" : teamName + "'S TURN";
+      if(phase !== 'setup' && currentTeam === 'red' && gameMode === 'pva') status.textContent = "AI THINKING...";
+      
       status.style.color = currentTeam === 'blue' ? "var(--color-blue)" : "var(--color-red)";
+      
       if (phase === 'setup') {
         indicator.textContent = "DRAG PIECES TO SET FORMATION";
       } else {
@@ -342,7 +392,9 @@
         if (d < minD) { minD = d; closest = p; }
       });
       
-      if (closest && minD < closest.r * 5) {
+      const hitRadius = closest ? closest.r * (isTouchDevice ? 5.5 : 3.5) : 0;
+      
+      if (closest && minD < hitRadius) {
         if (phase === 'aiming' && selectedPiece === closest) {
           selectedPiece = null;
           phase = 'idle';
@@ -350,6 +402,7 @@
           draw();
           return;
         }
+        if (navigator.vibrate) { try { navigator.vibrate(30); } catch(e){} }
         selectedPiece = closest; mousePos = m;
         if (phase !== 'setup') phase = 'aiming';
         updateUI();
@@ -390,11 +443,11 @@
           selectedPiece = null;
         } else if (phase === 'aiming') {
           const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y, d = Math.hypot(dx, dy);
-          const cancelRadius = selectedPiece.r * 2;
+          const cancelRadius = selectedPiece.r * 2.5;
           if (d > cancelRadius) {
             executeShot(selectedPiece, dx, dy, d);
           } else {
-            phase = 'idle'; draw(); // Cancel shot
+            phase = 'idle'; draw();
           }
           selectedPiece = null; updateUI();
         }
@@ -409,11 +462,15 @@
     canvas.addEventListener('touchend', handleInputUp, { passive: false });
 
     function executeShot(p, dx, dy, d) {
-      const maxDist = Math.min(W,H) * 0.55;
+      const maxDist = Math.min(W,H) * 0.6;
       const pow = Math.min(d, maxDist) / maxDist;
       const spd = pow * W * SPEED_SCALE;
       p.vx = (dx / d) * spd; p.vy = (dy / d) * spd;
       phase = 'animating'; lastHitBy = p.id; ballHitByShooter = false; passTriggeredThisShot = false;
+      
+      shotArrows.push({ x: p.x, y: p.y, dx: dx/d, dy: dy/d, time: Date.now() });
+      
+      if (reqFrameId) cancelAnimationFrame(reqFrameId);
       animate();
     }
 
@@ -424,10 +481,26 @@
       drawPieces();
       drawBall();
       if (phase === 'aiming') drawAimLine();
+      
+      // Momentum arrows
+      const now = Date.now();
+      shotArrows = shotArrows.filter(a => now - a.time < 200);
+      shotArrows.forEach(a => {
+        const alpha = 1 - (now - a.time)/200;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = isTouchDevice ? 6 : 4;
+        ctx.beginPath();
+        ctx.moveTo(a.x + a.dx*20, a.y + a.dy*20);
+        ctx.lineTo(a.x + a.dx*60, a.y + a.dy*60);
+        ctx.stroke();
+        ctx.restore();
+      });
+      if (shotArrows.length > 0) reqFrameId = requestAnimationFrame(draw);
     }
 
     function drawField() {
-      // Stripes
+      ctx.save();
       const stripeCount = 10;
       const stripeW = orientation === 'horizontal' ? W / stripeCount : H / stripeCount;
       for (let i = 0; i < stripeCount; i++) {
@@ -436,8 +509,8 @@
         else ctx.fillRect(0, i * stripeW, W, stripeW);
       }
 
-      // Markings
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      const baseLw = isTouchDevice ? 4.5 : 3;
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = baseLw;
       ctx.strokeRect(5, 5, W-10, H-10);
       
       const cx = W/2, cy = H/2;
@@ -447,17 +520,54 @@
       ctx.stroke();
 
       ctx.beginPath(); ctx.arc(cx, cy, Math.min(W,H)*0.15, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
     }
 
     function drawGoals() {
+      ctx.save();
       const g = getGoalMetrics();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      const baseLw = isTouchDevice ? 4.5 : 3;
       
+      // Danger zone (faint colored zone inside mouth)
+      ctx.fillStyle = 'rgba(255,0,0,0.15)';
+      if (orientation === 'horizontal') {
+        ctx.fillRect(0, g.gy, g.gw, g.gh);
+        ctx.fillRect(W-g.gw, g.gy, g.gw, g.gh);
+      } else {
+        ctx.fillRect(g.gx, 0, g.gw, g.gh);
+        ctx.fillRect(g.gx, H-g.gh, g.gw, g.gh);
+      }
+      
+      // Goal lines
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = baseLw;
       if (orientation === 'horizontal') {
         ctx.strokeRect(0, g.gy, g.gw, g.gh); ctx.strokeRect(W-g.gw, g.gy, g.gw, g.gh);
       } else {
         ctx.strokeRect(g.gx, 0, g.gw, g.gh); ctx.strokeRect(g.gx, H-g.gh, g.gw, g.gh);
       }
+      
+      // Goalkeeper bars
+      g.gkBars.forEach((bar, index) => {
+         const isBlueTeamGoal = orientation === 'horizontal' ? (index == 0) : (index == 0);
+         ctx.fillStyle = '#fff';
+         
+         ctx.beginPath();
+         ctx.roundRect(bar.x, bar.y, bar.w, bar.h, 4);
+         ctx.fill();
+         ctx.strokeStyle = '#1e293b'; ctx.lineWidth = baseLw; ctx.stroke();
+         
+         // Clang flash
+         const clangVal = isBlueTeamGoal ? goalkeeperClang.blue : goalkeeperClang.red;
+         if (clangVal > 0) {
+             ctx.fillStyle = `rgba(255,255,255,${clangVal})`;
+             ctx.beginPath(); ctx.roundRect(bar.x, bar.y, bar.w, bar.h, 4); ctx.fill();
+             if (isBlueTeamGoal) goalkeeperClang.blue -= 0.05;
+             else goalkeeperClang.red -= 0.05;
+             if (goalkeeperClang.blue < 0) goalkeeperClang.blue = 0;
+             if (goalkeeperClang.red < 0) goalkeeperClang.red = 0;
+             reqFrameId = requestAnimationFrame(draw);
+         }
+      });
 
       // Pin Markers
       ctx.fillStyle = '#fff';
@@ -465,46 +575,69 @@
         ctx.beginPath(); ctx.arc(bar.x, bar.y, 8, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
       });
+      ctx.restore();
     }
 
     function getGoalMetrics() {
       const gw = W*0.08, gh = H*0.4, edge = 5;
+      const barThick = 12; // Goalkeeper bar thickness
       if (orientation === 'horizontal') {
         const gy = (H - gh)/2;
-        return { gw, gh, gy, bars: [{x:edge,y:gy},{x:edge,y:gy+gh},{x:W-edge,y:gy},{x:W-edge,y:gy+gh}] };
+        const barH = gh * 0.5;
+        const barY = gy + (gh - barH)/2;
+        return { 
+            gw, gh, gy, 
+            bars: [{x:gw,y:gy},{x:gw,y:gy+gh},{x:W-gw,y:gy},{x:W-gw,y:gy+gh}],
+            gkBars: [
+                {x:0, y:barY, w:barThick, h:barH},
+                {x:W-barThick, y:barY, w:barThick, h:barH}
+            ],
+            dangerZones: [
+                {x1:-100, x2:gw, y1:gy, y2:gy+gh},
+                {x1:W-gw, x2:W+100, y1:gy, y2:gy+gh}
+            ]
+        };
       } else {
         const vgw = W*0.4, vgh = H*0.08, gx = (W - vgw)/2;
-        return { gw:vgw, gh:vgh, gx, bars: [{x:gx,y:edge},{x:gx+vgw,y:edge},{x:gx,y:H-edge},{x:gx+vgw,y:H-edge}] };
+        const barW = vgw * 0.5;
+        const barX = gx + (vgw - barW)/2;
+        return { 
+            gw:vgw, gh:vgh, gx, 
+            bars: [{x:gx,y:vgh},{x:gx+vgw,y:vgh},{x:gx,y:H-vgh},{x:gx+vgw,y:H-vgh}],
+            gkBars: [
+                {x:barX, y:0, w:barW, h:barThick},
+                {x:barX, y:H-barThick, w:barW, h:barThick}
+            ],
+            dangerZones: [
+                {x1:gx, x2:gx+vgw, y1:-100, y2:vgh},
+                {x1:gx, x2:gx+vgw, y1:H-vgh, y2:H+100}
+            ]
+        };
       }
     }
 
     function drawPieces() {
+      ctx.save();
+      const baseLw = isTouchDevice ? 6 : 4;
       pieces.forEach(p => {
-        // Shadow
         ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
-        
         const hasPassed = piecesPassedThisTurn.has(p.id) && p.team === currentTeam;
         
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-        if (hasPassed) {
-          ctx.fillStyle = '#94a3b8'; // Grey out
-        } else {
-          ctx.fillStyle = p.team === 'blue' ? '#4fc3f7' : '#ff8a65';
-        }
+        if (hasPassed) ctx.fillStyle = '#94a3b8';
+        else ctx.fillStyle = p.team === 'blue' ? '#4fc3f7' : '#ff8a65';
         ctx.fill();
         
         ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = baseLw; ctx.stroke();
 
         if (hasPassed) {
-          // Draw X badge
-          ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 3;
+          ctx.strokeStyle = '#1e293b'; ctx.lineWidth = baseLw - 1;
           ctx.beginPath();
           ctx.moveTo(p.x - p.r*0.4, p.y - p.r*0.4); ctx.lineTo(p.x + p.r*0.4, p.y + p.r*0.4);
           ctx.moveTo(p.x + p.r*0.4, p.y - p.r*0.4); ctx.lineTo(p.x - p.r*0.4, p.y + p.r*0.4);
           ctx.stroke();
         } else {
-          // Star Icon
           ctx.fillStyle = '#1e293b';
           const spikes = 5, outerR = p.r * 0.5, innerR = outerR * 0.4;
           let rot = Math.PI/2*3, step = Math.PI/spikes;
@@ -516,31 +649,35 @@
           ctx.closePath(); ctx.fill();
         }
       });
+      ctx.restore();
     }
 
     function drawBall() {
+      ctx.save();
+      const baseLw = isTouchDevice ? 4.5 : 3;
       ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
       ctx.fillStyle = '#fff'; ctx.fill();
       ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = baseLw; ctx.stroke();
 
-      // Pattern
       ctx.fillStyle = '#1e293b';
       for(let i=0; i<5; i++){
         const ang = (i/5)*Math.PI*2;
         ctx.beginPath(); ctx.arc(ball.x + Math.cos(ang)*6, ball.y + Math.sin(ang)*6, 3, 0, Math.PI*2); ctx.fill();
       }
       ctx.beginPath(); ctx.arc(ball.x, ball.y, 3, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
     }
 
     function drawAimLine() {
+      ctx.save();
       const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y;
       const angle = Math.atan2(dy, dx), dist = Math.hypot(dx, dy);
-      const maxDist = Math.min(W,H)*0.55;
+      const maxDist = Math.min(W,H)*0.6;
       const power = Math.min(dist, maxDist) / maxDist;
       const len = power * 120;
-      const cancelRadius = selectedPiece.r * 2;
+      const cancelRadius = selectedPiece.r * 2.5;
 
       // Draw Cancel Zone
       ctx.beginPath();
@@ -552,13 +689,29 @@
       ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
+      
+      // Draw Cancel X Button on Board
+      ctx.beginPath();
+      ctx.arc(W/2, H - 40, 20, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.8)'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.moveTo(W/2 - 8, H - 48); ctx.lineTo(W/2 + 8, H - 32);
+      ctx.moveTo(W/2 + 8, H - 48); ctx.lineTo(W/2 - 8, H - 32);
+      ctx.stroke();
 
       if (dist >= cancelRadius) {
-        let lineColor = '#fff';
+        let lineColor = '#22c55e'; // Green for weak
         if (power > 0.8) lineColor = '#ef4444'; // Red for full power
         else if (power > 0.4) lineColor = '#facc15'; // Yellow for medium
         
-        ctx.setLineDash([10, 5]); ctx.strokeStyle = lineColor; ctx.lineWidth = 4;
+        // Power Bar Arc
+        ctx.beginPath();
+        ctx.arc(selectedPiece.x, selectedPiece.y, selectedPiece.r * 1.5, angle - Math.PI, angle - Math.PI + (Math.PI*2 * power));
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        ctx.setLineDash([10, 5]); ctx.strokeStyle = lineColor; ctx.lineWidth = isTouchDevice ? 6 : 4;
         ctx.beginPath(); ctx.moveTo(selectedPiece.x, selectedPiece.y);
         ctx.lineTo(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len);
         ctx.stroke(); ctx.setLineDash([]);
@@ -567,16 +720,36 @@
         ctx.fillStyle = lineColor; ctx.fill();
         ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
       }
+      ctx.restore();
     }
 
     function animate() {
       let moving = false;
       const all = [...pieces, ball];
+      const g = getGoalMetrics();
+      
       all.forEach(o => {
         o.x += o.vx; o.y += o.vy; o.vx *= FRICTION; o.vy *= FRICTION;
         if (Math.abs(o.vx) < 0.1) o.vx = 0; if (Math.abs(o.vy) < 0.1) o.vy = 0;
         if (o.vx !== 0 || o.vy !== 0) moving = true;
-        const edge = 5, g = getGoalMetrics(), isBall = o === ball;
+        const edge = 5, isBall = o === ball;
+        
+        // Piece mouth bounce back (defense)
+        if (!isBall) {
+           g.dangerZones.forEach(dz => {
+               if (o.x > dz.x1 && o.x < dz.x2 && o.y > dz.y1 && o.y < dz.y2) {
+                   // Push it out based on orientation
+                   if (orientation === 'horizontal') {
+                       if (dz.x1 < 0) { o.x = dz.x2 + o.r; o.vx = Math.abs(o.vx) * RESTITUTION; } // Left
+                       else { o.x = dz.x1 - o.r; o.vx = -Math.abs(o.vx) * RESTITUTION; } // Right
+                   } else {
+                       if (dz.y1 < 0) { o.y = dz.y2 + o.r; o.vy = Math.abs(o.vy) * RESTITUTION; } // Top
+                       else { o.y = dz.y1 - o.r; o.vy = -Math.abs(o.vy) * RESTITUTION; } // Bottom
+                   }
+               }
+           });
+        }
+        
         if (orientation === 'horizontal') {
           if (o.x-o.r < edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = edge+o.r; o.vx *= -RESTITUTION; } }
           if (o.x+o.r > W-edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; } }
@@ -590,18 +763,16 @@
         }
       });
       checkCollisions(); if (checkGoal()) return; draw();
-      if (moving) requestAnimationFrame(animate); else endTurn();
+      if (moving) { reqFrameId = requestAnimationFrame(animate); } else endTurn();
     }
 
     function checkCollisions() {
       const all = [...pieces, ball];
       const g = getGoalMetrics();
-      const bars = orientation === 'horizontal' ? 
-        [{x:g.gw,y:g.gy},{x:g.gw,y:g.gy+g.gh},{x:W-g.gw,y:g.gy},{x:W-g.gw,y:g.gy+g.gh}] :
-        [{x:g.gx,y:g.gh},{x:g.gx+g.gw,y:g.gh},{x:g.gx,y:H-g.gh},{x:g.gx+g.gw,y:H-g.gh}];
-
+      
+      // Pin markers collision
       all.forEach(o => {
-        bars.forEach(b => {
+        g.bars.forEach(b => {
           const d = Math.hypot(o.x - b.x, o.y - b.y);
           if (d < o.r + 6) {
             const nx = (o.x - b.x)/d, ny = (o.y - b.y)/d;
@@ -610,6 +781,30 @@
             if (dot < 0) { o.vx -= 2*dot*nx*RESTITUTION; o.vy -= 2*dot*ny*RESTITUTION; }
           }
         });
+      });
+      
+      // Goalkeeper Bar collision (only for ball to bounce OUT of goal)
+      g.gkBars.forEach((bar, index) => {
+         // Rectangle collision for circle (ball)
+         let testX = ball.x; let testY = ball.y;
+         if (ball.x < bar.x) testX = bar.x; else if (ball.x > bar.x + bar.w) testX = bar.x + bar.w;
+         if (ball.y < bar.y) testY = bar.y; else if (ball.y > bar.y + bar.h) testY = bar.y + bar.h;
+         
+         let distX = ball.x - testX; let distY = ball.y - testY;
+         let distance = Math.hypot(distX, distY);
+         
+         if (distance <= ball.r) {
+             // Clang flash
+             if (index === 0) goalkeeperClang.blue = 1.0; else goalkeeperClang.red = 1.0;
+             
+             if (orientation === 'horizontal') {
+                 ball.vx *= -RESTITUTION;
+                 if (index == 0) ball.x = bar.x + bar.w + ball.r; else ball.x = bar.x - ball.r;
+             } else {
+                 ball.vy *= -RESTITUTION;
+                 if (index == 0) ball.y = bar.y + bar.h + ball.r; else ball.y = bar.y - ball.r;
+             }
+         }
       });
 
       for (let i = 0; i < all.length; i++) {
@@ -652,16 +847,21 @@
     function checkGoal() {
       const g = getGoalMetrics();
       if (orientation === 'horizontal') {
-        if (ball.x < 0) { scores.red++; celebrate('AI/P2 Scored!'); return true; }
-        if (ball.x > W) { scores.blue++; celebrate('Player 1 Scored!'); return true; }
+        if (ball.x < 0) { scores.red++; currentTeam = 'blue'; celebrate('AI/P2 Scored!', 'BLUE KICKS OFF'); return true; }
+        if (ball.x > W) { scores.blue++; currentTeam = 'red'; celebrate('Player 1 Scored!', 'RED KICKS OFF'); return true; }
       } else {
-        if (ball.y < 0) { scores.red++; celebrate('AI/P2 Scored!'); return true; }
-        if (ball.y > H) { scores.blue++; celebrate('Player 1 Scored!'); return true; }
+        if (ball.y < 0) { scores.red++; currentTeam = 'blue'; celebrate('AI/P2 Scored!', 'BLUE KICKS OFF'); return true; }
+        if (ball.y > H) { scores.blue++; currentTeam = 'red'; celebrate('Player 1 Scored!', 'RED KICKS OFF'); return true; }
       }
       return false;
     }
 
-    function celebrate(msg) { document.getElementById('status-msg').textContent = msg; setTimeout(() => { resetPositions(); draw(); }, 1500); }
+    function celebrate(msg, nextMsg) { 
+        if (navigator.vibrate) { try { navigator.vibrate([20,10,20]); } catch(e){} }
+        document.getElementById('status-msg').textContent = msg; 
+        document.getElementById('turn-indicator').textContent = nextMsg;
+        setTimeout(() => { resetPositions(); draw(); }, 1500); 
+    }
 
     function endTurn() {
       if (passTriggeredThisShot) {
@@ -720,9 +920,9 @@
       });
       
       if (aiDifficulty === 'easy') {
-        power *= 0.6; // slightly less than medium
+        power *= 0.6;
         const angle = Math.atan2(ty, tx);
-        const offsetAngle = angle + (Math.random() * (50 * Math.PI/180) - (25 * Math.PI/180));
+        const offsetAngle = angle + (Math.random() * 0.6 - 0.3); // +/- 0.3 rad
         const dist = Math.hypot(tx, ty);
         tx = Math.cos(offsetAngle) * dist;
         ty = Math.sin(offsetAngle) * dist;
@@ -731,8 +931,6 @@
       executeShot(bestPiece, tx, ty, power);
     }
 
-
-    function resetGame() { initGame(); draw(); }
     window.addEventListener('resize', resize);
     setTimeout(resize, 100);
   </script>
