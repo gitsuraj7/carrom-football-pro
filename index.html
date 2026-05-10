@@ -235,6 +235,7 @@
     function resize() {
       const rect = wrapper.getBoundingClientRect();
       const containerW = rect.width;
+      const oldW = W || containerW, oldH = H || (containerW * 0.6);
       
       if (orientation === 'horizontal') {
         wrapper.style.paddingBottom = '60%'; W = containerW; H = containerW * 0.6;
@@ -245,7 +246,11 @@
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       canvas.width = W * PR; canvas.height = H * PR;
       ctx.setTransform(PR, 0, 0, PR, 0, 0);
-      if (pieces.length === 0) initGame();
+      if (pieces.length === 0) { initGame(); return; }
+      // Scale existing positions to new dimensions
+      const sx = W / oldW, sy = H / oldH;
+      pieces.forEach(p => { p.x *= sx; p.y *= sy; p.r = Math.min(W,H)*0.062; });
+      if (ball) { ball.x *= sx; ball.y *= sy; ball.r = Math.min(W,H)*0.042; }
       draw();
     }
 
@@ -788,28 +793,22 @@
         });
       });
       
-      // Goalkeeper Bar collision (only for ball to bounce OUT of goal)
+      // Goalkeeper Bar collision (blocks ALL objects)
       g.gkBars.forEach((bar, index) => {
-         // Rectangle collision for circle (ball)
-         let testX = ball.x; let testY = ball.y;
-         if (ball.x < bar.x) testX = bar.x; else if (ball.x > bar.x + bar.w) testX = bar.x + bar.w;
-         if (ball.y < bar.y) testY = bar.y; else if (ball.y > bar.y + bar.h) testY = bar.y + bar.h;
-         
-         let distX = ball.x - testX; let distY = ball.y - testY;
+        all.forEach(o => {
+         let testX = o.x, testY = o.y;
+         if (o.x < bar.x) testX = bar.x; else if (o.x > bar.x + bar.w) testX = bar.x + bar.w;
+         if (o.y < bar.y) testY = bar.y; else if (o.y > bar.y + bar.h) testY = bar.y + bar.h;
+         let distX = o.x - testX, distY = o.y - testY;
          let distance = Math.hypot(distX, distY);
-         
-         if (distance <= ball.r) {
-             // Clang flash
-             if (index === 0) goalkeeperClang.blue = 1.0; else goalkeeperClang.red = 1.0;
-             
-             if (orientation === 'horizontal') {
-                 ball.vx *= -RESTITUTION;
-                 if (index == 0) ball.x = bar.x + bar.w + ball.r; else ball.x = bar.x - ball.r;
-             } else {
-                 ball.vy *= -RESTITUTION;
-                 if (index == 0) ball.y = bar.y + bar.h + ball.r; else ball.y = bar.y - ball.r;
-             }
+         if (distance <= o.r && distance > 0) {
+             if (o === ball) { if (index === 0) goalkeeperClang.blue = 1.0; else goalkeeperClang.red = 1.0; }
+             const nx = distX/distance, ny = distY/distance;
+             const dot = o.vx*nx + o.vy*ny;
+             if (dot < 0) { o.vx -= 2*dot*nx*RESTITUTION; o.vy -= 2*dot*ny*RESTITUTION; }
+             o.x = testX + nx*(o.r+1); o.y = testY + ny*(o.r+1);
          }
+        });
       });
 
       for (let i = 0; i < all.length; i++) {
@@ -838,24 +837,37 @@
     }
 
     function repositionPasserNearGoal(passer) {
-      const goalX = orientation === 'horizontal' ? (passer.team === 'blue' ? W : 0) : W/2;
-      const goalY = orientation === 'horizontal' ? H/2 : (passer.team === 'blue' ? 0 : H);
-      const dx = goalX - ball.x, dy = goalY - ball.y, angle = Math.atan2(dy, dx);
-      const offset = passer.r * 3.5;
-      passer.x = ball.x - Math.cos(angle)*offset; passer.y = ball.y - Math.sin(angle)*offset;
-      passer.x = Math.max(20, Math.min(W-20, passer.x)); passer.y = Math.max(20, Math.min(H-20, passer.y));
-      passer.vx = 0; passer.vy = 0;
+      // No teleportation — just give the passer a nudge toward the ball
+      const dx = ball.x - passer.x, dy = ball.y - passer.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0) {
+        const nudge = 2.5;
+        passer.vx += (dx/dist) * nudge;
+        passer.vy += (dy/dist) * nudge;
+      }
     }
 
     function checkGoal() {
       const g = getGoalMetrics();
+      // Blue defends LEFT (x<0), attacks RIGHT (x>W). Red is the opposite.
       if (orientation === 'horizontal') {
-        if (ball.x < 0) { scores.red++; currentTeam = 'blue'; celebrate('AI/P2 Scored!', 'BLUE KICKS OFF'); return true; }
-        if (ball.x > W) { scores.blue++; currentTeam = 'red'; celebrate('Player 1 Scored!', 'RED KICKS OFF'); return true; }
+        if (ball.x < 0) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
+        if (ball.x > W) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
       } else {
-        if (ball.y < 0) { scores.red++; currentTeam = 'blue'; celebrate('AI/P2 Scored!', 'BLUE KICKS OFF'); return true; }
-        if (ball.y > H) { scores.blue++; currentTeam = 'red'; celebrate('Player 1 Scored!', 'RED KICKS OFF'); return true; }
+        // Blue defends BOTTOM (y>H), attacks TOP (y<0). Red is opposite.
+        if (ball.y < 0) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
+        if (ball.y > H) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
       }
+      // Foul: check if any piece entered opponent's goal
+      pieces.forEach(p => {
+        if (orientation === 'horizontal') {
+          if (p.x < 5) { p.x = W*0.3; p.y = H/2; p.vx = 0; p.vy = 0; }
+          if (p.x > W-5) { p.x = W*0.7; p.y = H/2; p.vx = 0; p.vy = 0; }
+        } else {
+          if (p.y < 5) { p.x = W/2; p.y = H*0.3; p.vx = 0; p.vy = 0; }
+          if (p.y > H-5) { p.x = W/2; p.y = H*0.7; p.vx = 0; p.vy = 0; }
+        }
+      });
       return false;
     }
 
@@ -882,56 +894,77 @@
     function aiTurn() {
       if (phase !== 'idle' || currentTeam !== 'red') return;
       const my = pieces.filter(p => p.team === 'red');
-      let bestPiece = my[0], bestScore = -Infinity, tx = 0, ty = 0;
-      let power = (Math.min(W, H)*MAX_POWER) * 0.8;
+      const opp = pieces.filter(p => p.team === 'blue');
+      // Red attacks LEFT goal (x=0 in horizontal, y=H in vertical)
+      const goalX = orientation === 'horizontal' ? 0 : W/2;
+      const goalY = orientation === 'horizontal' ? H/2 : H;
+      const ownGoalX = orientation === 'horizontal' ? W : W/2;
+      const ownGoalY = orientation === 'horizontal' ? H/2 : 0;
       
-      const goalX = orientation === 'horizontal' ? 0 : W/2, goalY = orientation === 'horizontal' ? H/2 : H;
-      const ownGoalX = orientation === 'horizontal' ? W : W/2, ownGoalY = orientation === 'horizontal' ? H/2 : 0;
+      let bestPiece = null, bestDx = 0, bestDy = 0, bestScore = -Infinity;
       
-      my.forEach(p => {
-        let bdx = goalX - ball.x, bdy = goalY - ball.y;
-        
-        if (aiDifficulty === 'hard') {
-           const distToOwnGoal = Math.hypot(ownGoalX - ball.x, ownGoalY - ball.y);
-           if (distToOwnGoal < Math.min(W,H)*0.3) {
-             bdx = ball.x - ownGoalX; bdy = ball.y - ownGoalY;
-           } else {
-             const g = getGoalMetrics();
-             const offset = g.gw * 0.35;
-             if (orientation === 'horizontal') bdy += (Math.random() > 0.5 ? offset : -offset);
-             else bdx += (Math.random() > 0.5 ? offset : -offset);
-           }
+      // Check if path from point A to B is blocked by any opponent piece
+      function isPathClear(ax, ay, bx, by, ignore) {
+        const dx = bx-ax, dy = by-ay, len = Math.hypot(dx,dy);
+        if (len < 1) return true;
+        const nx = dx/len, ny = dy/len;
+        for (const op of [...opp, ...my]) {
+          if (op === ignore) continue;
+          const tx = op.x-ax, ty = op.y-ay;
+          const proj = tx*nx + ty*ny;
+          if (proj < 0 || proj > len) continue;
+          const perpDist = Math.abs(tx*ny - ty*nx);
+          if (perpDist < op.r + ball.r) return false;
         }
-        
-        const bdist = Math.hypot(bdx, bdy);
-        const hx = ball.x - (bdx/bdist)*(ball.r+p.r), hy = ball.y - (bdy/bdist)*(ball.r+p.r);
-        let dx = hx - p.x, dy = hy - p.y, dist = Math.hypot(dx, dy);
-        
-        let score = 1000/dist; 
-        
-        if (aiDifficulty === 'hard' && Math.random() < 0.2 && passCount < 2) {
-           const teammate = my.find(t => t !== p);
-           if (teammate) {
-               const passDx = teammate.x - ball.x, passDy = teammate.y - ball.y, pDist = Math.hypot(passDx, passDy);
-               const px = ball.x - (passDx/pDist)*(ball.r+p.r), py = ball.y - (passDy/pDist)*(ball.r+p.r);
-               dx = px - p.x; dy = py - p.y; dist = Math.hypot(dx, dy);
-               score = 2000/dist;
-           }
-        }
-        
-        if (score > bestScore) { bestScore = score; bestPiece = p; tx = dx; ty = dy; }
-      });
-      
-      if (aiDifficulty === 'easy') {
-        power *= 0.6;
-        const angle = Math.atan2(ty, tx);
-        const offsetAngle = angle + (Math.random() * 0.6 - 0.3); // +/- 0.3 rad
-        const dist = Math.hypot(tx, ty);
-        tx = Math.cos(offsetAngle) * dist;
-        ty = Math.sin(offsetAngle) * dist;
+        return true;
       }
       
-      executeShot(bestPiece, tx, ty, power);
+      my.forEach(p => {
+        const distToBall = Math.hypot(p.x - ball.x, p.y - ball.y);
+        // Ideal hit point: behind the ball relative to the opponent's goal
+        const bdx = goalX - ball.x, bdy = goalY - ball.y, bdist = Math.hypot(bdx, bdy);
+        const hitX = ball.x - (bdx/bdist)*(ball.r+p.r);
+        const hitY = ball.y - (bdy/bdist)*(ball.r+p.r);
+        let dx = hitX - p.x, dy = hitY - p.y, dist = Math.hypot(dx, dy);
+        
+        let score = 500 / (dist + 1); // Closer pieces are better
+        
+        // Bonus if clear shot to goal through ball
+        if (isPathClear(p.x, p.y, ball.x, ball.y, p)) score += 300;
+        if (isPathClear(ball.x, ball.y, goalX, goalY, p)) score += 200;
+        
+        // Hard AI: defensive awareness
+        if (aiDifficulty === 'hard' || aiDifficulty === 'medium') {
+          const ballToOwnGoal = Math.hypot(ball.x - ownGoalX, ball.y - ownGoalY);
+          if (ballToOwnGoal < Math.min(W,H)*0.3) {
+            // Ball is near our goal — clear it away
+            const clearDx = ball.x - ownGoalX, clearDy = ball.y - ownGoalY;
+            const clearDist = Math.hypot(clearDx, clearDy);
+            const clearHitX = ball.x - (clearDx/clearDist)*(ball.r+p.r);
+            const clearHitY = ball.y - (clearDy/clearDist)*(ball.r+p.r);
+            dx = clearHitX - p.x; dy = clearHitY - p.y; dist = Math.hypot(dx, dy);
+            score += 600; // Defensive priority
+          }
+        }
+        
+        if (score > bestScore) { bestScore = score; bestPiece = p; bestDx = dx; bestDy = dy; }
+      });
+      
+      let power = Math.hypot(bestDx, bestDy);
+      // Difficulty-based accuracy and power
+      if (aiDifficulty === 'easy') {
+        const angle = Math.atan2(bestDy, bestDx) + (Math.random() * 0.8 - 0.4);
+        bestDx = Math.cos(angle) * power; bestDy = Math.sin(angle) * power;
+        power *= 0.5;
+      } else if (aiDifficulty === 'medium') {
+        const angle = Math.atan2(bestDy, bestDx) + (Math.random() * 0.3 - 0.15);
+        bestDx = Math.cos(angle) * power; bestDy = Math.sin(angle) * power;
+        power *= 0.75;
+      } else {
+        power *= 0.9;
+      }
+      
+      executeShot(bestPiece, bestDx, bestDy, power);
     }
 
     window.addEventListener('resize', resize);
