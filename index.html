@@ -341,11 +341,18 @@
     }
 
     function finishSetup() {
-      phase = 'idle';
-      document.getElementById('btn-ready').style.display = 'none';
-      updateUI();
-      draw();
-      if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
+      if (gameMode === 'pvp' && currentTeam === 'blue') {
+        currentTeam = 'red';
+        updateUI();
+        draw();
+      } else {
+        phase = 'idle';
+        currentTeam = tossWinner || 'blue'; // Reset to toss winner after setup
+        document.getElementById('btn-ready').style.display = 'none';
+        updateUI();
+        draw();
+        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
+      }
     }
 
     function updateUI() {
@@ -390,7 +397,7 @@
       const m = getMouse(e);
       let closest = null, minD = Infinity;
       pieces.forEach(p => {
-        if (phase === 'setup' && p.team !== 'blue') return;
+        if (phase === 'setup' && p.team !== currentTeam) return;
         if ((phase === 'idle' || phase === 'aiming') && p.team !== currentTeam) return;
         
         const d = Math.hypot(p.x - m.x, p.y - m.y);
@@ -430,11 +437,19 @@
           selectedPiece.x = mousePos.x;
           selectedPiece.y = mousePos.y;
           if (orientation === 'horizontal') {
-            selectedPiece.x = Math.max(selectedPiece.r, Math.min(W/2 - selectedPiece.r, selectedPiece.x));
-            selectedPiece.y = Math.max(selectedPiece.r, Math.min(H - selectedPiece.r, selectedPiece.y));
+            if (selectedPiece.team === 'blue') {
+              selectedPiece.x = Math.max(selectedPiece.r, Math.min(W/2 - selectedPiece.r, mousePos.x));
+            } else {
+              selectedPiece.x = Math.max(W/2 + selectedPiece.r, Math.min(W - selectedPiece.r, mousePos.x));
+            }
+            selectedPiece.y = Math.max(selectedPiece.r, Math.min(H - selectedPiece.r, mousePos.y));
           } else {
-            selectedPiece.x = Math.max(selectedPiece.r, Math.min(W - selectedPiece.r, selectedPiece.x));
-            selectedPiece.y = Math.max(H/2 + selectedPiece.r, Math.min(H - selectedPiece.r, selectedPiece.y));
+            if (selectedPiece.team === 'blue') {
+              selectedPiece.y = Math.max(H/2 + selectedPiece.r, Math.min(H - selectedPiece.r, mousePos.y));
+            } else {
+              selectedPiece.y = Math.max(selectedPiece.r, Math.min(H/2 - selectedPiece.r, mousePos.y));
+            }
+            selectedPiece.x = Math.max(selectedPiece.r, Math.min(W - selectedPiece.r, mousePos.x));
           }
         }
         draw();
