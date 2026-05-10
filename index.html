@@ -604,18 +604,19 @@
     }
 
     function getGoalMetrics() {
-      const gw = W*0.08, gh = H*0.55, edge = 5;
-      const barThick = 12; // Goalkeeper bar thickness
+      const gw = W*0.12, gh = H*0.55, edge = 5;
+      const barThick = 10; 
+      const goalLine = 15; // The line you must cross to score
       if (orientation === 'horizontal') {
         const gy = (H - gh)/2;
-        const barH = gh * 0.3; // Much smaller bar
+        const barH = gh * 0.35; 
         const barY = gy + (gh - barH)/2;
         return { 
-            gw, gh, gy, 
+            gw, gh, gy, goalLine,
             bars: [{x:gw,y:gy},{x:gw,y:gy+gh},{x:W-gw,y:gy},{x:W-gw,y:gy+gh}],
             gkBars: [
-                {x:0, y:barY, w:barThick, h:barH},
-                {x:W-barThick, y:barY, w:barThick, h:barH}
+                {x:goalLine, y:barY, w:barThick, h:barH},
+                {x:W-goalLine-barThick, y:barY, w:barThick, h:barH}
             ],
             dangerZones: [
                 {x1:-100, x2:gw, y1:gy, y2:gy+gh},
@@ -623,15 +624,16 @@
             ]
         };
       } else {
-        const vgw = W*0.55, vgh = H*0.08, gx = (W - vgw)/2;
-        const barW = vgw * 0.3; // Much smaller bar
+        const vgw = W*0.55, vgh = H*0.12, gx = (W - vgw)/2;
+        const barW = vgw * 0.35; 
         const barX = gx + (vgw - barW)/2;
+        const goalLine = 15;
         return { 
-            gw:vgw, gh:vgh, gx, 
+            gw:vgw, gh:vgh, gx, goalLine,
             bars: [{x:gx,y:vgh},{x:gx+vgw,y:vgh},{x:gx,y:H-vgh},{x:gx+vgw,y:H-vgh}],
             gkBars: [
-                {x:barX, y:0, w:barW, h:barThick},
-                {x:barX, y:H-barThick, w:barW, h:barThick}
+                {x:barX, y:goalLine, w:barW, h:barThick},
+                {x:barX, y:H-goalLine-barThick, w:barW, h:barThick}
             ],
             dangerZones: [
                 {x1:gx, x2:gx+vgw, y1:-100, y2:vgh},
@@ -883,20 +885,19 @@
 
     function checkGoal() {
       const g = getGoalMetrics();
-      const margin = 10;
-      // Goal detection: must be within goal mouth AND past the line
+      // Goal detection: must pass BEHIND the bar (goalLine)
       if (orientation === 'horizontal') {
-        if (ball.x < margin && ball.y > g.gy && ball.y < g.gy+g.gh) { 
+        if (ball.x < g.goalLine && ball.y > g.gy && ball.y < g.gy+g.gh) { 
             scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; 
         }
-        if (ball.x > W - margin && ball.y > g.gy && ball.y < g.gy+g.gh) { 
+        if (ball.x > W - g.goalLine && ball.y > g.gy && ball.y < g.gy+g.gh) { 
             scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; 
         }
       } else {
-        if (ball.y < margin && ball.x > g.gx && ball.x < g.gx+g.gw) { 
+        if (ball.y < g.goalLine && ball.x > g.gx && ball.x < g.gx+g.gw) { 
             scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; 
         }
-        if (ball.y > H - margin && ball.x > g.gx && ball.x < g.gx+g.gw) { 
+        if (ball.y > H - g.goalLine && ball.x > g.gx && ball.x < g.gx+g.gw) { 
             scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; 
         }
       }
