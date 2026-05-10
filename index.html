@@ -1,5 +1,11 @@
+<<<<<<< HEAD
 
 <html lang="en"><head>
+=======
+<!DOCTYPE html>
+<html lang="en">
+<head>
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Carrom Football Pro — The Ultimate Sports Physics Game</title>
@@ -138,6 +144,7 @@
     .ai-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     #menu-overlay.hidden { opacity: 0; pointer-events: none; }
   </style>
+<<<<<<< HEAD
 <style id="antigravity-scroll-lock-style">
   html:root body.antigravity-scroll-lock {
     overflow: hidden !important;
@@ -151,6 +158,10 @@
   }
 </style></head>
 <body class="antigravity-scroll-lock">
+=======
+</head>
+<body>
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
 
   <div id="app-container">
     <div id="header">
@@ -159,8 +170,13 @@
         <span class="pill-value score-blue" id="score-blue">0</span>
       </div>
       <div id="status-container">
+<<<<<<< HEAD
         <div id="status-msg" style="color: var(--color-blue);">P1'S TURN</div>
         <div id="turn-indicator">DRAG TO SHOOT</div>
+=======
+        <div id="status-msg">P1'S TURN</div>
+        <div id="turn-indicator">AIM & SHOOT</div>
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
       </div>
       <div class="pill-score">
         <span class="pill-label">P2/AI</span>
@@ -168,7 +184,11 @@
       </div>
     </div>
 
+<<<<<<< HEAD
     <div id="game-board-wrapper" style="padding-bottom: 60%;">
+=======
+    <div id="game-board-wrapper">
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
       <div id="pass-toast">EXTRA TURN!</div>
       <div id="menu-overlay">
         <div id="menu-card">
@@ -188,7 +208,11 @@
           </div>
         </div>
       </div>
+<<<<<<< HEAD
       <canvas id="game-canvas" width="1054" height="632"></canvas>
+=======
+      <canvas id="game-canvas"></canvas>
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
     </div>
 
     <div id="controls">
@@ -282,11 +306,19 @@
       const indicator = document.getElementById('turn-indicator');
       status.textContent = currentTeam === 'blue' ? "P1'S TURN" : (gameMode === 'pvp' ? "P2'S TURN" : "AI THINKING...");
       status.style.color = currentTeam === 'blue' ? "var(--color-blue)" : "var(--color-red)";
+<<<<<<< HEAD
       indicator.textContent = phase === 'aiming' ? "READY TO SHOOT" : (passCount > 0 ? "COMBO PASS: " + passCount : "DRAG TO SHOOT");
     }
 
     function showPass() {
       passToast.textContent = "PASS COMBO x" + passCount;
+=======
+      indicator.textContent = phase === 'aiming' ? "READY TO SHOOT" : (passCount > 0 ? `COMBO PASS: ${passCount}` : "DRAG TO SHOOT");
+    }
+
+    function showPass() {
+      passToast.textContent = `PASS COMBO x${passCount}`;
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
       passToast.style.opacity = '1'; passToast.style.transform = 'translate(-50%, -60%)';
       setTimeout(() => { passToast.style.opacity = '0'; passToast.style.transform = 'translate(-50%, -50%)'; }, 1500);
     }
@@ -577,6 +609,11 @@
     window.addEventListener('resize', resize);
     setTimeout(resize, 100);
   </script>
+<<<<<<< HEAD
 
 
 <div id="preact-border-shadow-host" popover="manual" style="border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; padding: 0px; margin: 0px; inset: 0px; position: fixed; width: 100vw; height: 100vh; background: transparent; pointer-events: none;"></div></body></html>
+=======
+</body>
+</html>
+>>>>>>> 141d001 (Initial commit: Carrom Football Pro Ultimate Edition)
