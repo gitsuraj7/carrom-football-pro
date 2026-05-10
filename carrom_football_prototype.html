@@ -1,0 +1,380 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: transparent; }
+#gameWrap { padding: 1rem 0; display: flex; flex-direction: column; align-items: center; gap: 12px; font-family: var(--font-sans); }
+#statusBar { font-size: 14px; color: var(--color-text-secondary); min-height: 20px; text-align: center; }
+#turnLabel { font-size: 15px; font-weight: 500; color: var(--color-text-primary); text-align: center; }
+#canvas { border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-secondary); display: block; cursor: crosshair; }
+#controls { display: flex; gap: 10px; }
+button { font-size: 13px; padding: 7px 18px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; }
+button:hover { background: var(--color-background-secondary); }
+#scoreBoard { display: flex; gap: 24px; font-size: 15px; font-weight: 500; }
+.score-you { color: #1D9E75; }
+.score-ai { color: #D85A30; }
+</style>
+
+<div id="gameWrap">
+  <h2 class="sr-only">Carrom Football — pass and shoot game prototype</h2>
+  <div id="scoreBoard">
+    <span class="score-you">You: <span id="scoreYou">0</span></span>
+    <span style="color:var(--color-text-secondary)">|</span>
+    <span class="score-ai">AI: <span id="scoreAI">0</span></span>
+  </div>
+  <div id="turnLabel">Your turn</div>
+  <div id="statusBar">Click one of your green pieces to select it</div>
+  <canvas id="canvas" width="640" height="420"></canvas>
+  <div id="controls">
+    <button onclick="resetGame()">↺ Restart</button>
+    <button onclick="endTurn()">Skip turn</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = 640, H = 420;
+const GOAL_W = 80, GOAL_H = 10;
+const PIECE_R = 16, BALL_R = 10;
+const FRICTION = 0.97;
+
+let state, animFrame;
+
+function mkPiece(x,y,team){ return {x,y,vx:0,vy:0,team,r:PIECE_R}; }
+function mkBall(x,y){ return {x,y,vx:0,vy:0,r:BALL_R}; }
+
+function resetGame(){
+  cancelAnimationFrame(animFrame);
+  state = {
+    pieces: [
+      mkPiece(120,210,'you'), mkPiece(160,130,'you'), mkPiece(160,290,'you'), mkPiece(100,150,'you'), mkPiece(100,270,'you'),
+      mkPiece(520,210,'ai'),  mkPiece(480,130,'ai'),  mkPiece(480,290,'ai'),  mkPiece(540,150,'ai'),  mkPiece(540,270,'ai'),
+    ],
+    ball: mkBall(W/2, H/2),
+    turn: 'you',
+    phase: 'select',
+    selected: null,
+    passed: false,
+    usedAsReceiver: null,
+    scores: {you: parseInt(document.getElementById('scoreYou').textContent)||0, ai: parseInt(document.getElementById('scoreAI').textContent)||0},
+    moving: false,
+    aiTimer: null,
+    lastGoal: null,
+  };
+  setStatus('Click one of your green pieces to select it');
+  setTurnLabel('Your turn');
+  draw();
+}
+
+function setStatus(t){ document.getElementById('statusBar').textContent = t; }
+function setTurnLabel(t){ document.getElementById('turnLabel').textContent = t; }
+
+canvas.addEventListener('click', e => {
+  if(state.moving || state.turn !== 'you') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+
+  if(state.phase === 'select'){
+    const hit = state.pieces.find(p => p.team==='you' && dist(p,{x:mx,y:my}) < p.r + 6);
+    if(hit){ state.selected = hit; state.phase = 'aim'; setStatus('Now click where to shoot this piece'); }
+  } else if(state.phase === 'aim'){
+    shootPiece(state.selected, mx, my, 'player');
+  }
+});
+
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+function shootPiece(piece, tx, ty, shooter){
+  const dx = tx - piece.x, dy = ty - piece.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const speed = 11;
+  piece.vx = dx/len*speed;
+  piece.vy = dy/len*speed;
+  state.moving = true;
+  state.phase = 'moving';
+  setStatus('');
+  animate();
+}
+
+function animate(){
+  step();
+  draw();
+  const anyMoving = state.pieces.some(p=>Math.hypot(p.vx,p.vy)>0.15) || Math.hypot(state.ball.vx,state.ball.vy)>0.15;
+  if(anyMoving){ animFrame = requestAnimationFrame(animate); }
+  else { onStop(); }
+}
+
+function step(){
+  const all = [...state.pieces, state.ball];
+  all.forEach(o => {
+    o.x += o.vx; o.y += o.vy;
+    o.vx *= FRICTION; o.vy *= FRICTION;
+    if(Math.abs(o.vx)<0.05) o.vx=0;
+    if(Math.abs(o.vy)<0.05) o.vy=0;
+    wallBounce(o);
+  });
+  checkCollisions();
+  checkGoal();
+}
+
+function wallBounce(o){
+  if(o.x - o.r < 0){ o.x = o.r; o.vx = Math.abs(o.vx)*0.8; }
+  if(o.x + o.r > W){ o.x = W-o.r; o.vx = -Math.abs(o.vx)*0.8; }
+  if(o.y - o.r < 0){ o.y = o.r; o.vy = Math.abs(o.vy)*0.8; }
+  if(o.y + o.r > H){ o.y = H-o.r; o.vy = -Math.abs(o.vy)*0.8; }
+}
+
+function checkCollisions(){
+  const all = [...state.pieces, state.ball];
+  for(let i=0;i<all.length;i++){
+    for(let j=i+1;j<all.length;j++){
+      const a=all[i], b=all[j];
+      const d=dist(a,b), minD=a.r+b.r;
+      if(d<minD && d>0){
+        const nx=(b.x-a.x)/d, ny=(b.y-a.y)/d;
+        const overlap=(minD-d)/2;
+        a.x-=nx*overlap; a.y-=ny*overlap;
+        b.x+=nx*overlap; b.y+=ny*overlap;
+        const dvx=a.vx-b.vx, dvy=a.vy-b.vy;
+        const dot=dvx*nx+dvy*ny;
+        if(dot>0){
+          a.vx-=dot*nx; a.vy-=dot*ny;
+          b.vx+=dot*nx; b.vy+=dot*ny;
+          handlePassOrShot(a,b);
+        }
+      }
+    }
+  }
+}
+
+function handlePassOrShot(a, b){
+  const ball = state.ball;
+  const isBall = (o) => o === ball;
+  const isPiece = (o) => state.pieces.includes(o);
+
+  if(isBall(b) && isPiece(a) && a.team === 'you'){
+    checkPassCollision(a, b);
+  }
+  if(isBall(a) && isPiece(b) && b.team === 'you'){
+    checkPassCollision(b, a);
+  }
+}
+
+function checkPassCollision(piece, ball){
+  if(!state.passed && state.selected === piece){
+    const teammates = state.pieces.filter(p=>p.team==='you' && p!==piece);
+    const nearest = teammates.reduce((best, t) => dist(t,ball)<dist(best,ball)?t:best, teammates[0]);
+    if(nearest && dist(nearest, ball) < 140){
+      state.passed = true;
+      state.usedAsReceiver = nearest;
+      setTimeout(()=>{
+        if(state.moving) autoReposition(piece);
+      }, 200);
+      setStatus('Pass! Passer repositioning...');
+    }
+  }
+}
+
+function autoReposition(piece){
+  const goalX = W - 20, goalY = H/2;
+  const candidates = [];
+  for(let tries=0;tries<20;tries++){
+    const cx = 80 + Math.random()*220;
+    const cy = 60 + Math.random()*(H-120);
+    const tooClose = state.pieces.some(p=>p!==piece && dist(p,{x:cx,y:cy})<PIECE_R*2.5);
+    if(!tooClose) candidates.push({x:cx,y:cy, score: -dist({x:cx,y:cy},{x:goalX,y:goalY})});
+  }
+  if(candidates.length){
+    candidates.sort((a,b)=>b.score-a.score);
+    piece.x = candidates[0].x; piece.y = candidates[0].y;
+    piece.vx=0; piece.vy=0;
+  }
+}
+
+function checkGoal(){
+  const ball = state.ball;
+  const goalTop = H/2 - GOAL_W/2, goalBot = H/2 + GOAL_W/2;
+  if(ball.x < 12 && ball.y > goalTop && ball.y < goalBot){
+    state.lastGoal = 'ai'; stopAll(); return;
+  }
+  if(ball.x > W-12 && ball.y > goalTop && ball.y < goalBot){
+    state.lastGoal = 'you'; stopAll(); return;
+  }
+}
+
+function stopAll(){
+  state.pieces.forEach(p=>{p.vx=0;p.vy=0;});
+  state.ball.vx=0; state.ball.vy=0;
+  state.moving = false;
+}
+
+function onStop(){
+  state.moving = false;
+  if(state.lastGoal){
+    const g = state.lastGoal; state.lastGoal = null;
+    if(g==='you'){ state.scores.you++; document.getElementById('scoreYou').textContent=state.scores.you; setStatus('⚽ GOAL! You scored!'); }
+    else { state.scores.ai++; document.getElementById('scoreAI').textContent=state.scores.ai; setStatus('AI scored!'); }
+    setTimeout(()=>{ resetPositions(); }, 1200);
+    return;
+  }
+  if(state.turn==='you'){
+    state.passed = false; state.selected = null; state.usedAsReceiver = null;
+    state.turn = 'ai'; state.phase = 'select';
+    setTurnLabel('AI turn');
+    setStatus('AI is thinking...');
+    setTimeout(aiTurn, 900);
+  } else {
+    state.turn = 'you'; state.phase = 'select'; state.passed = false; state.selected=null;
+    setTurnLabel('Your turn');
+    setStatus('Click one of your green pieces to select it');
+  }
+}
+
+function endTurn(){
+  if(state.moving || state.turn!=='you') return;
+  stopAll();
+  state.passed=false; state.selected=null; state.usedAsReceiver=null;
+  state.turn='ai'; state.phase='select';
+  setTurnLabel('AI turn');
+  setStatus('AI is thinking...');
+  setTimeout(aiTurn, 900);
+}
+
+function resetPositions(){
+  state.pieces.forEach((p,i)=>{
+    if(p.team==='you'){ p.x=[120,160,160,100,100][i]; p.y=[210,130,290,150,270][i]; }
+    else { const j=i-5; p.x=[520,480,480,540,540][j]; p.y=[210,130,290,150,270][j]; }
+    p.vx=0; p.vy=0;
+  });
+  state.ball.x=W/2; state.ball.y=H/2; state.ball.vx=0; state.ball.vy=0;
+  state.turn='you'; state.phase='select'; state.passed=false; state.selected=null;
+  setTurnLabel('Your turn');
+  setStatus('Click one of your green pieces to select it');
+  draw();
+}
+
+function aiTurn(){
+  if(state.turn!=='ai') return;
+  const aiPieces = state.pieces.filter(p=>p.team==='ai');
+  const ball = state.ball;
+  const goalX=0, goalY=H/2;
+  let bestPiece=null, bestTx=0, bestTy=0, bestScore=-Infinity;
+  aiPieces.forEach(p=>{
+    const d=dist(p,ball);
+    const toGoalDist = dist(ball,{x:goalX,y:goalY});
+    const score = -d*0.5 - toGoalDist*0.3 + Math.random()*60;
+    if(score>bestScore){ bestScore=score; bestPiece=p; bestTx=ball.x+(goalX-ball.x)*0.4+Math.random()*30-15; bestTy=ball.y+(goalY-ball.y)*0.4+Math.random()*30-15; }
+  });
+  if(bestPiece){ state.selected=bestPiece; shootPiece(bestPiece, bestTx, bestTy, 'ai'); }
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  drawField();
+  drawPieces();
+  drawBall();
+}
+
+function drawField(){
+  ctx.fillStyle = '#2a6e3f';
+  ctx.beginPath(); roundRect(ctx,0,0,W,H,12); ctx.fill();
+
+  for(let i=1;i<8;i++){
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth=1;
+    ctx.moveTo(W/8*i,0); ctx.lineTo(W/8*i,H);
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.strokeStyle='rgba(255,255,255,0.15)';
+  ctx.lineWidth=1.5;
+  ctx.moveTo(W/2,0); ctx.lineTo(W/2,H);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(W/2,H/2,55,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,0.15)';
+  ctx.lineWidth=1.5;
+  ctx.stroke();
+
+  const gTop = H/2-GOAL_W/2, gBot=H/2+GOAL_W/2;
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.fillRect(0, gTop, 10, GOAL_W);
+  ctx.fillRect(W-10, gTop, 10, GOAL_W);
+  ctx.strokeStyle='rgba(255,255,255,0.5)';
+  ctx.lineWidth=2;
+  ctx.strokeRect(0, gTop, 10, GOAL_W);
+  ctx.strokeRect(W-10, gTop, 10, GOAL_W);
+
+  ctx.font='11px var(--font-sans)';
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  ctx.textAlign='center';
+  ctx.fillText('AI GOAL', 5, gTop-6);
+  ctx.fillText('YOUR GOAL', W-5, gTop-6);
+}
+
+function drawPieces(){
+  state.pieces.forEach(p=>{
+    const isSelected = p === state.selected;
+    const isUsed = p === state.usedAsReceiver;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    if(p.team==='you'){
+      ctx.fillStyle = isSelected ? '#5DCAA5' : isUsed ? '#9FE1CB' : '#1D9E75';
+    } else {
+      ctx.fillStyle = isSelected ? '#F0997B' : '#D85A30';
+    }
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.5)';
+    ctx.lineWidth = isSelected ? 3 : 1.5;
+    ctx.stroke();
+    if(isSelected){
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r+5,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,0.3)';
+      ctx.lineWidth=1.5;
+      ctx.stroke();
+    }
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.font='bold 11px var(--font-sans)';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(p.team==='you'?'Y':'A', p.x, p.y);
+  });
+}
+
+function drawBall(){
+  const b=state.ball;
+  ctx.beginPath();
+  ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+  ctx.fillStyle='#fff';
+  ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)';
+  ctx.lineWidth=1;
+  ctx.stroke();
+  ctx.fillStyle='#444';
+  ctx.font='bold 9px var(--font-sans)';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText('●',b.x,b.y);
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+resetGame();
+state.scores = {you:0, ai:0};
+document.getElementById('scoreYou').textContent='0';
+document.getElementById('scoreAI').textContent='0';
+</script>

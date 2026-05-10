@@ -1,0 +1,492 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: transparent; }
+#game-container {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+  user-select: none;
+}
+#board-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 62%;
+}
+#board {
+  position: absolute; inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+#ui-panel {
+  padding: 12px 4px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.score-box {
+  display: flex; align-items: center; gap: 8px;
+}
+.team-label {
+  font-size: 13px; font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.team-blue { background: #B5D4F4; color: #0C447C; }
+.team-red  { background: #F7C1C1; color: #791F1F; }
+.score-num {
+  font-size: 22px; font-weight: 500;
+  color: var(--color-text-primary);
+  min-width: 24px; text-align: center;
+}
+.score-sep { font-size: 18px; color: var(--color-text-secondary); }
+#status-bar {
+  font-size: 13px; color: var(--color-text-secondary);
+  text-align: center; flex: 1;
+  min-width: 160px;
+}
+#reset-btn {
+  font-size: 12px; padding: 4px 12px;
+  border-radius: 6px; cursor: pointer;
+  background: transparent;
+  border: 0.5px solid var(--color-border-secondary);
+  color: var(--color-text-secondary);
+}
+#reset-btn:hover { background: var(--color-background-secondary); }
+#pass-indicator {
+  font-size: 12px; color: var(--color-text-secondary);
+  text-align: center;
+  padding: 4px 0 2px;
+  min-height: 20px;
+}
+</style>
+
+<div id="game-container">
+  <h2 class="sr-only">Carrom Football — turn-based passing game. Shoot pieces to pass or score goals.</h2>
+  <div id="ui-panel">
+    <div class="score-box">
+      <span class="team-label team-blue">You</span>
+      <span class="score-num" id="score-blue">0</span>
+    </div>
+    <div id="status-bar">Your turn — aim &amp; shoot</div>
+    <div class="score-box">
+      <span class="score-num" id="score-red">0</span>
+      <span class="team-label team-red">AI</span>
+    </div>
+    <button id="reset-btn" onclick="resetGame()">Restart</button>
+  </div>
+  <div id="pass-indicator"></div>
+  <div id="board-wrap">
+    <canvas id="board"></canvas>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('board');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('board-wrap');
+
+let W, H, GW, GH, PR;
+let pieces = [], ball = {};
+let shooting = false, dragStart = null, mousePos = null;
+let currentTeam = 'blue';
+let scores = {blue:0, red:0};
+let passedPieces = new Set();
+let selectedPiece = null;
+let aiTimeout = null;
+let gamePhase = 'select'; // select, aim, animating, ai
+
+const PIECE_R = () => W * 0.038;
+const BALL_R  = () => W * 0.026;
+const FRICTION = 0.985;
+const RESTITUTION = 0.82;
+
+function resize() {
+  const rect = wrap.getBoundingClientRect();
+  W = rect.width; H = rect.width * 0.62;
+  PR = window.devicePixelRatio || 1;
+  canvas.width  = W * PR;
+  canvas.height = H * PR;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(PR, PR);
+  GW = W * 0.06; GH = H * 0.28;
+  if (pieces.length === 0) resetGame();
+  else draw();
+}
+
+function resetGame() {
+  clearTimeout(aiTimeout);
+  scores = {blue:0, red:0};
+  document.getElementById('score-blue').textContent = '0';
+  document.getElementById('score-red').textContent = '0';
+  passedPieces = new Set();
+  selectedPiece = null;
+  currentTeam = 'blue';
+  gamePhase = 'select';
+  setStatus('Your turn — tap a piece to select');
+  document.getElementById('pass-indicator').textContent = '';
+  initPieces();
+  draw();
+}
+
+function initPieces() {
+  const pr = PIECE_R();
+  pieces = [];
+  const blueXs = [W*0.22, W*0.22, W*0.30, W*0.28, W*0.20];
+  const blueYs = [H*0.25, H*0.75, H*0.50, H*0.33, H*0.67];
+  blueXs.forEach((x,i) => pieces.push({x, y: blueYs[i], vx:0, vy:0, team:'blue', id:i}));
+  const redXs  = [W*0.78, W*0.78, W*0.70, W*0.72, W*0.80];
+  const redYs  = [H*0.25, H*0.75, H*0.50, H*0.33, H*0.67];
+  redXs.forEach((x,i) => pieces.push({x, y: redYs[i], vx:0, vy:0, team:'red', id:i+5}));
+  ball = {x: W/2, y: H/2, vx:0, vy:0};
+}
+
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  drawBoard();
+  drawGoals();
+  drawBall();
+  drawPieces();
+  if (gamePhase === 'aim' && selectedPiece && mousePos) drawAimLine();
+}
+
+function drawBoard() {
+  ctx.fillStyle = '#2d6a2d';
+  ctx.beginPath(); ctx.roundRect(0,0,W,H,10); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2,H/2,H*0.18,0,Math.PI*2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.strokeRect(W*0.02, H*0.02, W*0.96, H*0.96);
+}
+
+function drawGoals() {
+  const gy = (H - GH) / 2;
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.fillRect(0, gy, GW, GH);
+  ctx.fillRect(W - GW, gy, GW, GH);
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, gy, GW, GH);
+  ctx.strokeRect(W - GW, gy, GW, GH);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = `bold ${Math.round(H*0.04)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('GOAL', GW/2, H/2);
+  ctx.fillText('GOAL', W - GW/2, H/2);
+}
+
+function drawPieces() {
+  const pr = PIECE_R();
+  pieces.forEach(p => {
+    const isPassed = passedPieces.has(p.id);
+    const isSelected = selectedPiece && selectedPiece.id === p.id;
+    const col = p.team === 'blue'
+      ? (isSelected ? '#378ADD' : isPassed ? '#9abfdf' : '#B5D4F4')
+      : (isSelected ? '#E24B4A' : isPassed ? '#dfa0a0' : '#F7C1C1');
+    const stroke = p.team === 'blue' ? '#0C447C' : '#791F1F';
+    ctx.shadowColor = isSelected ? (p.team==='blue'?'#378ADD':'#E24B4A') : 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = isSelected ? 10 : 4;
+    ctx.beginPath(); ctx.arc(p.x, p.y, pr, 0, Math.PI*2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = stroke; ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    if (isPassed) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, pr*0.35, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fill();
+    }
+  });
+}
+
+function drawBall() {
+  const br = BALL_R();
+  ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 6;
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, br, 0, Math.PI*2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.beginPath(); ctx.arc(ball.x - br*0.25, ball.y - br*0.25, br*0.25, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(200,200,200,0.5)'; ctx.fill();
+}
+
+function drawAimLine() {
+  const p = selectedPiece;
+  const dx = p.x - mousePos.x, dy = p.y - mousePos.y;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  if (len < 5) return;
+  const maxPow = W * 0.25;
+  const power = Math.min(len, maxPow) / maxPow;
+  const ex = p.x + (dx/len) * power * W*0.12;
+  const ey = p.y + (dy/len) * power * W*0.12;
+  ctx.setLineDash([5,5]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fill();
+}
+
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const src = e.touches ? e.touches[0] : e;
+  return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+}
+
+function getPieceAt(pos, team) {
+  const pr = PIECE_R() * 1.4;
+  return pieces.find(p => p.team === team && !passedPieces.has(p.id) &&
+    Math.hypot(p.x - pos.x, p.y - pos.y) < pr);
+}
+
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(e); }, {passive:false});
+canvas.addEventListener('mousemove', onMove);
+canvas.addEventListener('touchmove', e => { e.preventDefault(); onMove(e); }, {passive:false});
+canvas.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchend', e => { e.preventDefault(); onUp(e); }, {passive:false});
+
+function onDown(e) {
+  if (gamePhase !== 'select' && gamePhase !== 'aim') return;
+  if (currentTeam !== 'blue') return;
+  const pos = getMousePos(e);
+  const hit = getPieceAt(pos, 'blue');
+  if (hit) {
+    selectedPiece = hit;
+    gamePhase = 'aim';
+    dragStart = pos;
+    mousePos = pos;
+    setStatus('Drag back to aim — release to shoot');
+    draw();
+  }
+}
+
+function onMove(e) {
+  if (gamePhase !== 'aim') return;
+  mousePos = getMousePos(e);
+  draw();
+}
+
+function onUp(e) {
+  if (gamePhase !== 'aim' || !selectedPiece) return;
+  const pos = getMousePos(e);
+  const dx = selectedPiece.x - pos.x;
+  const dy = selectedPiece.y - pos.y;
+  const len = Math.sqrt(dx*dx+dy*dy);
+  if (len < 8) { gamePhase = 'select'; selectedPiece = null; draw(); return; }
+  const maxPow = W * 0.25;
+  const power = Math.min(len, maxPow) / maxPow;
+  const speed = power * W * 0.035;
+  selectedPiece.vx = (dx/len) * speed;
+  selectedPiece.vy = (dy/len) * speed;
+  const shootingPiece = selectedPiece;
+  selectedPiece = null;
+  gamePhase = 'animating';
+  setStatus('…');
+  animate(shootingPiece);
+}
+
+function animate(shooter) {
+  let frames = 0;
+  const pr = PIECE_R(), br = BALL_R();
+  let passHandled = false;
+  let lastBallHolder = null;
+
+  function step() {
+    frames++;
+    let moving = false;
+
+    [shooter, ball, ...pieces.filter(p=>p!==shooter)].forEach(obj => {
+      obj.x += obj.vx; obj.y += obj.vy;
+      obj.vx *= FRICTION; obj.vy *= FRICTION;
+      const r = obj === ball ? br : pr;
+      if (obj.x - r < GW) { if (!(obj.y > (H-GH)/2 && obj.y < (H+GH)/2)) { obj.x = GW+r; obj.vx *= -RESTITUTION; } }
+      if (obj.x + r > W-GW) { if (!(obj.y > (H-GH)/2 && obj.y < (H+GH)/2)) { obj.x = W-GW-r; obj.vx *= -RESTITUTION; } }
+      if (obj.y - r < 0) { obj.y = r; obj.vy *= -RESTITUTION; }
+      if (obj.y + r > H) { obj.y = H-r; obj.vy *= -RESTITUTION; }
+      if (Math.abs(obj.vx) > 0.05 || Math.abs(obj.vy) > 0.05) moving = true;
+    });
+
+    piecePieceCollisions(pr);
+    const passDone = pieceBallCollision(shooter, pr, br, passedPieces, lastBallHolder);
+    if (passDone && !passHandled) {
+      passHandled = true;
+      lastBallHolder = shooter.id;
+    }
+    checkGoal();
+    draw();
+
+    const allStopped = !moving &&
+      pieces.every(p => Math.abs(p.vx)<0.05 && Math.abs(p.vy)<0.05) &&
+      Math.abs(ball.vx)<0.05 && Math.abs(ball.vy)<0.05;
+
+    if (!allStopped && frames < 600) {
+      requestAnimationFrame(step);
+    } else {
+      endTurn();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function piecePieceCollisions(pr) {
+  for (let i=0; i<pieces.length; i++) {
+    for (let j=i+1; j<pieces.length; j++) {
+      const a=pieces[i], b=pieces[j];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if (dist < pr*2 && dist > 0.01) {
+        const overlap=(pr*2-dist)/2;
+        const nx=dx/dist, ny=dy/dist;
+        a.x -= nx*overlap; a.y -= ny*overlap;
+        b.x += nx*overlap; b.y += ny*overlap;
+        const relVx=b.vx-a.vx, relVy=b.vy-a.vy;
+        const dot=relVx*nx+relVy*ny;
+        if (dot < 0) {
+          const imp=dot*RESTITUTION;
+          a.vx += imp*nx; a.vy += imp*ny;
+          b.vx -= imp*nx; b.vy -= imp*ny;
+        }
+        const isPassing = checkPass(a, b);
+      }
+    }
+  }
+}
+
+function checkPass(a, b) {
+  if (a.team === b.team) {
+    const ballDist = Math.min(
+      Math.hypot(ball.x-a.x, ball.y-a.y),
+      Math.hypot(ball.x-b.x, ball.y-b.y)
+    );
+    const pr = PIECE_R();
+    if (ballDist < pr * 3.5) {
+      const passer = Math.hypot(ball.x-a.x,ball.y-a.y) < Math.hypot(ball.x-b.x,ball.y-b.y) ? a : b;
+      const receiver = passer === a ? b : a;
+      if (!passedPieces.has(passer.id)) {
+        passedPieces.add(passer.id);
+        reposition(passer, receiver);
+        showPassIndicator(passer.team);
+      }
+    }
+  }
+}
+
+function pieceBallCollision(piece, pr, br, passed, lastHolder) {
+  const dx=ball.x-piece.x, dy=ball.y-piece.y;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  if (dist < pr+br && dist > 0.01) {
+    const overlap=(pr+br-dist)/2;
+    const nx=dx/dist, ny=dy/dist;
+    ball.x += nx*overlap; ball.y += ny*overlap;
+    piece.x -= nx*overlap; piece.y -= ny*overlap;
+    const relVx=ball.vx-piece.vx, relVy=ball.vy-piece.vy;
+    const dot=relVx*nx+relVy*ny;
+    if (dot < 0) {
+      ball.vx -= dot*RESTITUTION*nx; ball.vy -= dot*RESTITUTION*ny;
+      piece.vx += dot*RESTITUTION*nx; piece.vy += dot*RESTITUTION*ny;
+    }
+    return true;
+  }
+  return false;
+}
+
+function reposition(passer, receiver) {
+  const pr = PIECE_R();
+  const goalX = passer.team === 'blue' ? W - GW : GW;
+  const dx = goalX - receiver.x, dy = H/2 - receiver.y;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  const angle = Math.atan2(dy, dx) + (Math.random()-0.5) * 0.8;
+  const dist = pr * 4 + Math.random() * pr * 2;
+  passer.x = receiver.x + Math.cos(angle) * dist;
+  passer.y = receiver.y + Math.sin(angle) * dist;
+  passer.x = Math.max(GW + pr, Math.min(W - GW - pr, passer.x));
+  passer.y = Math.max(pr, Math.min(H - pr, passer.y));
+  passer.vx = 0; passer.vy = 0;
+}
+
+function showPassIndicator(team) {
+  const el = document.getElementById('pass-indicator');
+  el.textContent = team === 'blue' ? 'Pass! Piece repositioned' : 'AI passed!';
+  el.style.color = team === 'blue' ? '#185FA5' : '#A32D2D';
+  setTimeout(() => { el.textContent = ''; }, 1500);
+}
+
+function checkGoal() {
+  const br = BALL_R();
+  const gy = (H-GH)/2;
+  if (ball.x - br < GW && ball.y > gy && ball.y < gy+GH) {
+    scores.red++;
+    document.getElementById('score-red').textContent = scores.red;
+    resetBallAndPieces();
+    setStatus('Goal for AI! Your turn');
+    currentTeam = 'blue';
+    gamePhase = 'select';
+  }
+  if (ball.x + br > W-GW && ball.y > gy && ball.y < gy+GH) {
+    scores.blue++;
+    document.getElementById('score-blue').textContent = scores.blue;
+    resetBallAndPieces();
+    setStatus('GOAL! Your turn');
+    currentTeam = 'blue';
+    gamePhase = 'select';
+  }
+}
+
+function resetBallAndPieces() {
+  ball.x = W/2; ball.y = H/2; ball.vx = 0; ball.vy = 0;
+  passedPieces = new Set();
+}
+
+function endTurn() {
+  passedPieces = new Set();
+  if (currentTeam === 'blue') {
+    currentTeam = 'red';
+    gamePhase = 'ai';
+    setStatus('AI is thinking…');
+    aiTimeout = setTimeout(aiTurn, 800);
+  } else {
+    currentTeam = 'blue';
+    gamePhase = 'select';
+    setStatus('Your turn — tap a piece to select');
+  }
+}
+
+function aiTurn() {
+  if (gamePhase !== 'ai') return;
+  const available = pieces.filter(p => p.team === 'red' && !passedPieces.has(p.id));
+  if (!available.length) { endTurn(); return; }
+  const goalX = GW, goalY = H/2;
+  let best = available[0], bestScore = Infinity;
+  available.forEach(p => {
+    const dBall = Math.hypot(ball.x-p.x, ball.y-p.y);
+    const dGoal = Math.hypot(ball.x-goalX, ball.y-goalY);
+    const s = dBall + dGoal * 0.5;
+    if (s < bestScore) { bestScore = s; best = p; }
+  });
+  const tx = ball.x + (goalX - ball.x) * 0.4;
+  const ty = ball.y + (goalY - ball.y) * 0.4;
+  const dx = best.x - tx, dy = best.y - ty;
+  const len = Math.sqrt(dx*dx+dy*dy) || 1;
+  const power = 0.4 + Math.random() * 0.35;
+  const speed = power * W * 0.032;
+  best.vx = (dx/len) * speed;
+  best.vy = (dy/len) * speed;
+  gamePhase = 'animating';
+  animate(best);
+}
+
+window.addEventListener('resize', resize);
+setTimeout(resize, 50);
+</script>
