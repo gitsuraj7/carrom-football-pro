@@ -584,11 +584,11 @@
     }
 
     function getGoalMetrics() {
-      const gw = W*0.08, gh = H*0.4, edge = 5;
+      const gw = W*0.08, gh = H*0.55, edge = 5;
       const barThick = 12; // Goalkeeper bar thickness
       if (orientation === 'horizontal') {
         const gy = (H - gh)/2;
-        const barH = gh * 0.5;
+        const barH = gh * 0.3; // Much smaller bar
         const barY = gy + (gh - barH)/2;
         return { 
             gw, gh, gy, 
@@ -603,8 +603,8 @@
             ]
         };
       } else {
-        const vgw = W*0.4, vgh = H*0.08, gx = (W - vgw)/2;
-        const barW = vgw * 0.5;
+        const vgw = W*0.55, vgh = H*0.08, gx = (W - vgw)/2;
+        const barW = vgw * 0.3; // Much smaller bar
         const barX = gx + (vgw - barW)/2;
         return { 
             gw:vgw, gh:vgh, gx, 
@@ -849,14 +849,14 @@
 
     function checkGoal() {
       const g = getGoalMetrics();
-      // Blue defends LEFT (x<0), attacks RIGHT (x>W). Red is the opposite.
+      const margin = 10;
+      // Goal detection: trigger when ball center crosses the bar area
       if (orientation === 'horizontal') {
-        if (ball.x < 0) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
-        if (ball.x > W) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
+        if (ball.x < margin) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
+        if (ball.x > W - margin) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
       } else {
-        // Blue defends BOTTOM (y>H), attacks TOP (y<0). Red is opposite.
-        if (ball.y < 0) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
-        if (ball.y > H) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
+        if (ball.y < margin) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
+        if (ball.y > H - margin) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
       }
       // Foul: check if any piece entered opponent's goal
       pieces.forEach(p => {
