@@ -111,7 +111,22 @@
     #toss-result-text { font-size: 32px; font-weight: 900; text-transform: uppercase; color: #1e293b; margin-top: 15px;}
 
     @media (max-width: 480px) {
-      #status-msg { font-size: 24px; }
+      @keyframes pop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.4); }
+        100% { transform: scale(1); }
+      }
+      .score-pop { animation: pop 0.4s ease-out; }
+      
+      @keyframes shake {
+        10%, 90% { transform: translate3d(-2px, 0, 0); }
+        20%, 80% { transform: translate3d(4px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+        40%, 60% { transform: translate3d(8px, 0, 0); }
+      }
+      .shake-anim { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+      #status-msg { margin: 0; }
+
       .pill-value { font-size: 20px; padding: 8px 16px; }
       .pill-label { font-size: 14px; padding: 8px 12px; }
       #controls button { padding: 12px; font-size: 24px; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
@@ -210,8 +225,31 @@
     let orientation = 'horizontal'; 
     let tossWinner = null;
     let reqFrameId = null;
-    let shotArrows = [];
     let goalkeeperClang = { blue: 0, red: 0 };
+
+    // --- AUDIO ENGINE (Synthetic) ---
+    const AudioEngine = (() => {
+      let ctx = null;
+      function init() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+      function play(freq, type, dur, vol) {
+        init(); if (ctx.state === 'suspended') ctx.resume();
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + dur);
+      }
+      return {
+        clink: () => play(800 + Math.random()*400, 'sine', 0.1, 0.15),
+        thud: () => play(150 + Math.random()*50, 'triangle', 0.2, 0.1),
+        goal: () => {
+          play(400, 'square', 0.5, 0.1);
+          setTimeout(() => play(500, 'square', 0.5, 0.1), 100);
+          setTimeout(() => play(600, 'square', 0.8, 0.15), 200);
+        }
+      };
+    })();
 
     const isTouchDevice = navigator.maxTouchPoints > 0;
     if (isTouchDevice && window.innerWidth <= 480) {
@@ -841,7 +879,10 @@
              if (o === ball) { if (index === 0) goalkeeperClang.blue = 1.0; else goalkeeperClang.red = 1.0; }
              const nx = distX/distance, ny = distY/distance;
              const dot = o.vx*nx + o.vy*ny;
-             if (dot < 0) { o.vx -= 2*dot*nx*RESTITUTION; o.vy -= 2*dot*ny*RESTITUTION; }
+             if (dot < 0) { 
+               o.vx -= 2*dot*nx*RESTITUTION; o.vy -= 2*dot*ny*RESTITUTION; 
+               AudioEngine.thud();
+             }
              o.x = testX + nx*(o.r+1); o.y = testY + ny*(o.r+1);
          }
         });
@@ -854,9 +895,15 @@
           if (d < minD && d > 0) {
             const nx = (b.x - a.x)/d, ny = (b.y - a.y)/d, overlap = (minD - d)/2;
             a.x -= nx*overlap; a.y -= ny*overlap; b.x += nx*overlap; b.y += ny*overlap;
-            const relVx = b.vx-a.vx, relVy = b.vy-a.vy, dot = relVx*nx + relVy*ny;
-            if (dot < 0) { const imp = dot*RESTITUTION; a.vx += imp*nx; a.vy += imp*ny; b.vx -= imp*nx; b.vy -= imp*ny; }
-            if (phase === 'animating') {
+             const relVx = b.vx - a.vx, relVy = b.vy - a.vy;
+             const speed = relVx*nx + relVy*ny;
+             if (speed < 0) {
+                 const impulse = (2 * speed) / (1 + 1);
+                 a.vx += impulse * nx * RESTITUTION; a.vy += impulse * ny * RESTITUTION;
+                 b.vx -= impulse * nx * RESTITUTION; b.vy -= impulse * ny * RESTITUTION;
+                 if (Math.hypot(a.vx, a.vy) > 1 || Math.hypot(b.vx, b.vy) > 1) AudioEngine.clink();
+             }
+             if (phase === 'animating') {
               const shooter = pieces.find(p => p.id === lastHitBy);
               if ((a === shooter && b === ball) || (b === shooter && a === ball)) ballHitByShooter = true;
               if (ballHitByShooter && !passTriggeredThisShot && passCount < 5) {
@@ -915,10 +962,17 @@
     }
 
     function celebrate(msg, nextMsg) { 
+        AudioEngine.goal();
         if (navigator.vibrate) { try { navigator.vibrate([100,50,100]); } catch(e){} }
         document.getElementById('status-msg').textContent = msg; 
         document.getElementById('turn-indicator').textContent = nextMsg;
         
+        // Scoreboard Pop
+        const scoreEl = msg.includes('BLUE') ? document.getElementById('score-blue') : document.getElementById('score-red');
+        scoreEl.classList.remove('score-pop');
+        void scoreEl.offsetWidth;
+        scoreEl.classList.add('score-pop');
+
         // Visual "Juice": Screen shake
         const wrapper = document.getElementById('game-board-wrapper');
         wrapper.classList.remove('shake-anim');
@@ -964,24 +1018,32 @@
           const proj = tx*nx + ty*ny;
           if (proj < 0 || proj > len) continue;
           const perpDist = Math.abs(tx*ny - ty*nx);
-          if (perpDist < op.r + ball.r) return false;
+          if (perpDist < op.r + ball.r + 2) return false;
         }
         return true;
       }
       
       my.forEach(p => {
-        const distToBall = Math.hypot(p.x - ball.x, p.y - ball.y);
-        // Ideal hit point: behind the ball relative to the opponent's goal
+        // Option 1: Direct shot
         const bdx = goalX - ball.x, bdy = goalY - ball.y, bdist = Math.hypot(bdx, bdy);
         const hitX = ball.x - (bdx/bdist)*(ball.r+p.r);
         const hitY = ball.y - (bdy/bdist)*(ball.r+p.r);
         let dx = hitX - p.x, dy = hitY - p.y, dist = Math.hypot(dx, dy);
         
-        let score = 500 / (dist + 1); // Closer pieces are better
-        
-        // Bonus if clear shot to goal through ball
+        let score = 500 / (dist + 1);
         if (isPathClear(p.x, p.y, ball.x, ball.y, p)) score += 300;
         if (isPathClear(ball.x, ball.y, goalX, goalY, p)) score += 200;
+        
+        // Option 2: Bank Shot (Hard AI only)
+        if (aiDifficulty === 'hard' && score < 800) {
+          const sideY = Math.random() > 0.5 ? 20 : H-20;
+          const bdxB = goalX - ball.x, bdyB = sideY - ball.y;
+          // Simplified bank logic: aim to hit ball such that it bounces off sideY towards goal
+          // For now, let's just add a "Defensive Nudge" if goal is blocked
+          if (!isPathClear(ball.x, ball.y, goalX, goalY, p)) {
+            score -= 100; // Penalize blocked direct shots
+          }
+        }
         
         // Hard AI: defensive awareness
         if (aiDifficulty === 'hard' || aiDifficulty === 'medium') {
