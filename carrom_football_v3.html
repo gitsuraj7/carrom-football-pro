@@ -618,45 +618,55 @@
 
     function drawPieces() {
       ctx.save();
-      const baseLw = isTouchDevice ? 6 : 4;
+      const baseLw = isTouchDevice ? 5 : 3;
       pieces.forEach(p => {
-        ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
-        
+        // Drop shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 5;
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-        ctx.fillStyle = p.team === 'blue' ? '#4fc3f7' : '#ff8a65';
+        const baseCol = p.team === 'blue' ? [79,195,247] : [255,138,101];
+        ctx.fillStyle = `rgb(${baseCol[0]},${baseCol[1]},${baseCol[2]})`;
         ctx.fill();
-        
-        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = baseLw; ctx.stroke();
-
-        ctx.fillStyle = '#1e293b';
-        const spikes = 5, outerR = p.r * 0.5, innerR = outerR * 0.4;
-        let rot = Math.PI/2*3, step = Math.PI/spikes;
-        ctx.beginPath(); ctx.moveTo(p.x, p.y - outerR);
-        for(let i=0; i<spikes; i++){
-          ctx.lineTo(p.x + Math.cos(rot)*outerR, p.y + Math.sin(rot)*outerR); rot += step;
-          ctx.lineTo(p.x + Math.cos(rot)*innerR, p.y + Math.sin(rot)*innerR); rot += step;
-        }
-        ctx.closePath(); ctx.fill();
+        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+        // 3D radial gradient overlay
+        const grad = ctx.createRadialGradient(p.x - p.r*0.3, p.y - p.r*0.3, p.r*0.1, p.x, p.y, p.r);
+        grad.addColorStop(0, `rgba(255,255,255,0.45)`);
+        grad.addColorStop(0.6, `rgba(255,255,255,0.0)`);
+        grad.addColorStop(1, `rgba(0,0,0,0.25)`);
+        ctx.fillStyle = grad; ctx.fill();
+        // Rim stroke
+        ctx.strokeStyle = p.team === 'blue' ? '#1565c0' : '#c62828';
+        ctx.lineWidth = baseLw; ctx.stroke();
+        // Inner ring
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.55, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(255,255,255,0.3)`; ctx.lineWidth = 1.5; ctx.stroke();
+        // Team emblem dot
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.18, 0, Math.PI*2);
+        ctx.fillStyle = p.team === 'blue' ? '#0d47a1' : '#b71c1c'; ctx.fill();
       });
       ctx.restore();
     }
 
     function drawBall() {
       ctx.save();
-      const baseLw = isTouchDevice ? 4.5 : 3;
-      ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
-      ctx.fillStyle = '#fff'; ctx.fill();
-      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = baseLw; ctx.stroke();
-
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#f5f5f5'; ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+      // 3D gradient
+      const bg = ctx.createRadialGradient(ball.x - ball.r*0.25, ball.y - ball.r*0.25, ball.r*0.05, ball.x, ball.y, ball.r);
+      bg.addColorStop(0, 'rgba(255,255,255,0.9)');
+      bg.addColorStop(0.5, 'rgba(255,255,255,0.0)');
+      bg.addColorStop(1, 'rgba(0,0,0,0.2)');
+      ctx.fillStyle = bg; ctx.fill();
+      // Rim
+      ctx.strokeStyle = '#9e9e9e'; ctx.lineWidth = 2; ctx.stroke();
+      // Pentagon pattern
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
       for(let i=0; i<5; i++){
-        const ang = (i/5)*Math.PI*2;
-        ctx.beginPath(); ctx.arc(ball.x + Math.cos(ang)*6, ball.y + Math.sin(ang)*6, 3, 0, Math.PI*2); ctx.fill();
+        const ang = (i/5)*Math.PI*2 - Math.PI/2;
+        ctx.beginPath(); ctx.arc(ball.x + Math.cos(ang)*ball.r*0.45, ball.y + Math.sin(ang)*ball.r*0.45, ball.r*0.2, 0, Math.PI*2); ctx.fill();
       }
-      ctx.beginPath(); ctx.arc(ball.x, ball.y, 3, 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
 
@@ -666,49 +676,46 @@
       const angle = Math.atan2(dy, dx), dist = Math.hypot(dx, dy);
       const maxDist = Math.min(W,H)*0.6;
       const power = Math.min(dist, maxDist) / maxDist;
-      const len = power * 120;
       const cancelRadius = selectedPiece.r * 2.5;
-
-      // Draw Cancel Zone
-      ctx.beginPath();
-      ctx.arc(selectedPiece.x, selectedPiece.y, cancelRadius, 0, Math.PI*2);
-      ctx.fillStyle = dist < cancelRadius ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+      // Cancel Zone
+      ctx.beginPath(); ctx.arc(selectedPiece.x, selectedPiece.y, cancelRadius, 0, Math.PI*2);
+      ctx.fillStyle = dist < cancelRadius ? 'rgba(239,68,68,0.35)' : 'rgba(255,255,255,0.08)';
       ctx.fill();
-      ctx.strokeStyle = dist < cancelRadius ? '#ef4444' : '#fff';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      
-      // Draw Cancel X Button on Board
-      ctx.beginPath();
-      ctx.arc(W/2, H - 40, 20, 0, Math.PI*2);
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.8)'; ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-      ctx.moveTo(W/2 - 8, H - 48); ctx.lineTo(W/2 + 8, H - 32);
-      ctx.moveTo(W/2 + 8, H - 48); ctx.lineTo(W/2 - 8, H - 32);
-      ctx.stroke();
-
+      ctx.strokeStyle = dist < cancelRadius ? '#ef4444' : 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 2; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
       if (dist >= cancelRadius) {
-        let lineColor = '#22c55e'; // Green for weak
-        if (power > 0.8) lineColor = '#ef4444'; // Red for full power
-        else if (power > 0.4) lineColor = '#facc15'; // Yellow for medium
-        
-        // Power Bar Arc
+        let lineColor = '#22c55e';
+        if (power > 0.8) lineColor = '#ef4444';
+        else if (power > 0.4) lineColor = '#facc15';
+        // Power arc
         ctx.beginPath();
-        ctx.arc(selectedPiece.x, selectedPiece.y, selectedPiece.r * 1.5, angle - Math.PI, angle - Math.PI + (Math.PI*2 * power));
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        
-        ctx.setLineDash([10, 5]); ctx.strokeStyle = lineColor; ctx.lineWidth = isTouchDevice ? 6 : 4;
-        ctx.beginPath(); ctx.moveTo(selectedPiece.x, selectedPiece.y);
-        ctx.lineTo(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len);
-        ctx.stroke(); ctx.setLineDash([]);
-        
-        ctx.beginPath(); ctx.arc(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len, 6, 0, Math.PI*2);
+        ctx.arc(selectedPiece.x, selectedPiece.y, selectedPiece.r*1.6, angle-Math.PI, angle-Math.PI+(Math.PI*2*power));
+        ctx.strokeStyle = lineColor; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.stroke();
+        // Bank-shot trajectory prediction
+        const predLen = power * Math.min(W,H) * 0.45;
+        const dirX = Math.cos(angle), dirY = Math.sin(angle);
+        let cx = selectedPiece.x, cy = selectedPiece.y, rdx = dirX, rdy = dirY, traveled = 0;
+        const edge = 5, dotGap = 12, dotR = isTouchDevice ? 4 : 3;
+        let bounced = false;
+        // Draw dotted trajectory with bounce
+        for (let step = 0; step < 40 && traveled < predLen; step++) {
+          const nx = cx + rdx * dotGap, ny = cy + rdy * dotGap;
+          // Check wall bounce
+          if (nx - edge < 0) { rdx = -rdx; bounced = true; }
+          else if (nx + edge > W) { rdx = -rdx; bounced = true; }
+          if (ny - edge < 0) { rdy = -rdy; bounced = true; }
+          else if (ny + edge > H) { rdy = -rdy; bounced = true; }
+          cx += rdx * dotGap; cy += rdy * dotGap;
+          traveled += dotGap;
+          const alpha = 1 - (traveled / predLen) * 0.7;
+          ctx.beginPath(); ctx.arc(cx, cy, dotR, 0, Math.PI*2);
+          ctx.fillStyle = bounced ? `rgba(255,255,255,${alpha*0.5})` : `rgba(255,255,255,${alpha})`;
+          ctx.fill();
+        }
+        // Endpoint marker
+        ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI*2);
         ctx.fillStyle = lineColor; ctx.fill();
-        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
       }
       ctx.restore();
     }
@@ -717,42 +724,50 @@
       let moving = false;
       const all = [...pieces, ball];
       const g = getGoalMetrics();
+      const SUB_STEPS = 4;
+      const subFriction = Math.pow(FRICTION, 1/SUB_STEPS);
+      
+      for (let s = 0; s < SUB_STEPS; s++) {
+        all.forEach(o => {
+          o.x += o.vx / SUB_STEPS; o.y += o.vy / SUB_STEPS;
+          o.vx *= subFriction; o.vy *= subFriction;
+          const edge = 5, isBall = o === ball;
+          
+          // Piece mouth: physical impulse ejection (not teleport)
+          if (!isBall) {
+             g.dangerZones.forEach(dz => {
+                 if (o.x > dz.x1 && o.x < dz.x2 && o.y > dz.y1 && o.y < dz.y2) {
+                     const kick = Math.max(Math.hypot(o.vx,o.vy) * 1.2, 4);
+                     if (orientation === 'horizontal') {
+                         if (dz.x1 < 0) { o.vx = kick; } else { o.vx = -kick; }
+                     } else {
+                         if (dz.y1 < 0) { o.vy = kick; } else { o.vy = -kick; }
+                     }
+                 }
+             });
+          }
+          
+          if (orientation === 'horizontal') {
+            if (o.x-o.r < edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = edge+o.r; o.vx *= -RESTITUTION; } }
+            if (o.x+o.r > W-edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; } }
+            if (o.y-o.r < edge) { o.y = edge+o.r; o.vy *= -RESTITUTION; }
+            if (o.y+o.r > H-edge) { o.y = H-edge-o.r; o.vy *= -RESTITUTION; }
+          } else {
+            if (o.y-o.r < edge) { if (!isBall || !(o.x > g.gx && o.x < g.gx+g.gw)) { o.y = edge+o.r; o.vy *= -RESTITUTION; } }
+            if (o.y+o.r > H-edge) { if (!isBall || !(o.x > g.gx && o.x < g.gx+g.gw)) { o.y = H-edge-o.r; o.vy *= -RESTITUTION; } }
+            if (o.x-o.r < edge) { o.x = edge+o.r; o.vx *= -RESTITUTION; }
+            if (o.x+o.r > W-edge) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; }
+          }
+        });
+        checkCollisions();
+      }
       
       all.forEach(o => {
-        o.x += o.vx; o.y += o.vy; o.vx *= FRICTION; o.vy *= FRICTION;
         if (Math.abs(o.vx) < 0.1) o.vx = 0; if (Math.abs(o.vy) < 0.1) o.vy = 0;
         if (o.vx !== 0 || o.vy !== 0) moving = true;
-        const edge = 5, isBall = o === ball;
-        
-        // Piece mouth bounce back (defense)
-        if (!isBall) {
-           g.dangerZones.forEach(dz => {
-               if (o.x > dz.x1 && o.x < dz.x2 && o.y > dz.y1 && o.y < dz.y2) {
-                   // Push it out based on orientation
-                   if (orientation === 'horizontal') {
-                       if (dz.x1 < 0) { o.x = dz.x2 + o.r; o.vx = Math.abs(o.vx) * RESTITUTION; } // Left
-                       else { o.x = dz.x1 - o.r; o.vx = -Math.abs(o.vx) * RESTITUTION; } // Right
-                   } else {
-                       if (dz.y1 < 0) { o.y = dz.y2 + o.r; o.vy = Math.abs(o.vy) * RESTITUTION; } // Top
-                       else { o.y = dz.y1 - o.r; o.vy = -Math.abs(o.vy) * RESTITUTION; } // Bottom
-                   }
-               }
-           });
-        }
-        
-        if (orientation === 'horizontal') {
-          if (o.x-o.r < edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = edge+o.r; o.vx *= -RESTITUTION; } }
-          if (o.x+o.r > W-edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; } }
-          if (o.y-o.r < edge) { o.y = edge+o.r; o.vy *= -RESTITUTION; }
-          if (o.y+o.r > H-edge) { o.y = H-edge-o.r; o.vy *= -RESTITUTION; }
-        } else {
-          if (o.y-o.r < edge) { if (!isBall || !(o.x > g.gx && o.x < g.gx+g.gw)) { o.y = edge+o.r; o.vy *= -RESTITUTION; } }
-          if (o.y+o.r > H-edge) { if (!isBall || !(o.x > g.gx && o.x < g.gx+g.gw)) { o.y = H-edge-o.r; o.vy *= -RESTITUTION; } }
-          if (o.x-o.r < edge) { o.x = edge+o.r; o.vx *= -RESTITUTION; }
-          if (o.x+o.r > W-edge) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; }
-        }
       });
-      checkCollisions(); if (checkGoal()) return; draw();
+      
+      if (checkGoal()) return; draw();
       if (moving) { reqFrameId = requestAnimationFrame(animate); } else endTurn();
     }
 
