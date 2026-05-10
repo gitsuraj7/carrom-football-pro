@@ -182,6 +182,7 @@
     </div>
 
     <div id="controls">
+      <button id="btn-ready" onclick="finishSetup()" style="display:none; background: #10b981; box-shadow: 0 4px 0 #059669;">READY</button>
       <button onclick="showMenu()">MENU</button>
       <button onclick="toggleOrientation()">ROTATE</button>
       <button onclick="resetGame()">RESET</button>
@@ -240,14 +241,14 @@
 
     function startGame(mode, difficulty) {
       gameMode = mode; if (difficulty) aiDifficulty = difficulty;
-      menuOverlay.classList.add('hidden'); initGame();
+      menuOverlay.classList.add('hidden'); initGame(true);
     }
 
     function showMenu() { menuOverlay.classList.remove('hidden'); }
 
-    function initGame() { scores = { blue: 0, red: 0 }; resetPositions(); }
+    function initGame(doSetup = false) { scores = { blue: 0, red: 0 }; resetPositions(doSetup); }
 
-    function resetPositions() {
+    function resetPositions(doSetup = false) {
       const pr = Math.min(W, H) * 0.062;
       pieces = [];
       if (orientation === 'horizontal') {
@@ -262,7 +263,37 @@
         rPos.forEach((p,i)=>pieces.push({x:W*p.x,y:H*p.y,vx:0,vy:0,r:pr,team:'red',id:i+5}));
       }
       ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: Math.min(W, H) * 0.042 };
-      phase = 'idle'; currentTeam = 'blue'; passCount = 0; updateUI();
+      
+      currentTeam = 'blue'; passCount = 0; piecesPassedThisTurn.clear();
+      
+      if (doSetup) {
+        phase = 'setup';
+        document.getElementById('btn-ready').style.display = 'block';
+        if (gameMode === 'pva') randomizeAIFormation();
+      } else {
+        phase = 'idle';
+        document.getElementById('btn-ready').style.display = 'none';
+      }
+      updateUI();
+    }
+
+    function randomizeAIFormation() {
+      pieces.filter(p => p.team === 'red').forEach(p => {
+        if (orientation === 'horizontal') {
+          p.x = W * (0.6 + Math.random() * 0.35);
+          p.y = H * (0.1 + Math.random() * 0.8);
+        } else {
+          p.x = W * (0.1 + Math.random() * 0.8);
+          p.y = H * (0.1 + Math.random() * 0.35);
+        }
+      });
+    }
+
+    function finishSetup() {
+      phase = 'idle';
+      document.getElementById('btn-ready').style.display = 'none';
+      updateUI();
+      draw();
     }
 
     function updateUI() {
@@ -272,7 +303,11 @@
       const indicator = document.getElementById('turn-indicator');
       status.textContent = currentTeam === 'blue' ? "P1'S TURN" : (gameMode === 'pvp' ? "P2'S TURN" : "AI THINKING...");
       status.style.color = currentTeam === 'blue' ? "var(--color-blue)" : "var(--color-red)";
-      indicator.textContent = phase === 'aiming' ? "READY TO SHOOT" : (passCount > 0 ? `COMBO PASS: ${passCount}` : "DRAG TO SHOOT");
+      if (phase === 'setup') {
+        indicator.textContent = "DRAG PIECES TO SET FORMATION";
+      } else {
+        indicator.textContent = phase === 'aiming' ? "READY TO SHOOT" : (passCount > 0 ? `COMBO PASS: ${passCount}` : "DRAG TO SHOOT");
+      }
     }
 
     function showPass() {
@@ -292,31 +327,59 @@
 
     function handleInputDown(e) {
       if (e.cancelable) e.preventDefault();
-      if (phase !== 'idle' || (gameMode === 'pva' && currentTeam === 'red')) return;
+      if (phase !== 'idle' && phase !== 'setup') return;
+      if (phase === 'idle' && gameMode === 'pva' && currentTeam === 'red') return;
+      
       const m = getMouse(e);
       let closest = null, minD = Infinity;
       pieces.forEach(p => {
-        if (p.team === currentTeam) {
-          const d = Math.hypot(p.x - m.x, p.y - m.y);
-          if (d < minD) { minD = d; closest = p; }
-        }
+        if (phase === 'setup' && p.team !== 'blue') return;
+        if (phase === 'idle' && p.team !== currentTeam) return;
+        
+        const d = Math.hypot(p.x - m.x, p.y - m.y);
+        if (d < minD) { minD = d; closest = p; }
       });
       if (closest && minD < closest.r * 3.5) {
-        selectedPiece = closest; mousePos = m; phase = 'aiming'; updateUI();
+        selectedPiece = closest; mousePos = m;
+        if (phase !== 'setup') phase = 'aiming';
+        updateUI();
       }
     }
 
     function handleInputMove(e) {
       if (e.cancelable) e.preventDefault();
-      if (phase === 'aiming' && selectedPiece) { mousePos = getMouse(e); draw(); }
+      if (selectedPiece) {
+        mousePos = getMouse(e);
+        if (phase === 'setup') {
+          selectedPiece.x = mousePos.x;
+          selectedPiece.y = mousePos.y;
+          if (orientation === 'horizontal') {
+            selectedPiece.x = Math.max(selectedPiece.r, Math.min(W/2 - selectedPiece.r, selectedPiece.x));
+            selectedPiece.y = Math.max(selectedPiece.r, Math.min(H - selectedPiece.r, selectedPiece.y));
+          } else {
+            selectedPiece.x = Math.max(selectedPiece.r, Math.min(W - selectedPiece.r, selectedPiece.x));
+            selectedPiece.y = Math.max(H/2 + selectedPiece.r, Math.min(H - selectedPiece.r, selectedPiece.y));
+          }
+        }
+        draw();
+      }
     }
 
     function handleInputUp(e) {
       if (e.cancelable) e.preventDefault();
-      if (phase === 'aiming' && selectedPiece) {
-        const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y, d = Math.hypot(dx, dy);
-        if (d > 5) executeShot(selectedPiece, dx, dy, d); else { phase = 'idle'; draw(); }
-        selectedPiece = null; updateUI();
+      if (selectedPiece) {
+        if (phase === 'setup') {
+          selectedPiece = null;
+        } else if (phase === 'aiming') {
+          const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y, d = Math.hypot(dx, dy);
+          const cancelRadius = selectedPiece.r * 2.5;
+          if (d > cancelRadius) {
+            executeShot(selectedPiece, dx, dy, d);
+          } else {
+            phase = 'idle'; draw(); // Cancel shot
+          }
+          selectedPiece = null; updateUI();
+        }
       }
     }
 
@@ -401,22 +464,38 @@
         // Shadow
         ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
         
+        const hasPassed = piecesPassedThisTurn.has(p.id) && p.team === currentTeam;
+        
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-        ctx.fillStyle = p.team === 'blue' ? '#4fc3f7' : '#ff8a65'; ctx.fill();
+        if (hasPassed) {
+          ctx.fillStyle = '#94a3b8'; // Grey out
+        } else {
+          ctx.fillStyle = p.team === 'blue' ? '#4fc3f7' : '#ff8a65';
+        }
+        ctx.fill();
         
         ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
         ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 4; ctx.stroke();
 
-        // Star Icon
-        ctx.fillStyle = '#1e293b';
-        const spikes = 5, outerR = p.r * 0.5, innerR = outerR * 0.4;
-        let rot = Math.PI/2*3, step = Math.PI/spikes;
-        ctx.beginPath(); ctx.moveTo(p.x, p.y - outerR);
-        for(let i=0; i<spikes; i++){
-          ctx.lineTo(p.x + Math.cos(rot)*outerR, p.y + Math.sin(rot)*outerR); rot += step;
-          ctx.lineTo(p.x + Math.cos(rot)*innerR, p.y + Math.sin(rot)*innerR); rot += step;
+        if (hasPassed) {
+          // Draw X badge
+          ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(p.x - p.r*0.4, p.y - p.r*0.4); ctx.lineTo(p.x + p.r*0.4, p.y + p.r*0.4);
+          ctx.moveTo(p.x + p.r*0.4, p.y - p.r*0.4); ctx.lineTo(p.x - p.r*0.4, p.y + p.r*0.4);
+          ctx.stroke();
+        } else {
+          // Star Icon
+          ctx.fillStyle = '#1e293b';
+          const spikes = 5, outerR = p.r * 0.5, innerR = outerR * 0.4;
+          let rot = Math.PI/2*3, step = Math.PI/spikes;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y - outerR);
+          for(let i=0; i<spikes; i++){
+            ctx.lineTo(p.x + Math.cos(rot)*outerR, p.y + Math.sin(rot)*outerR); rot += step;
+            ctx.lineTo(p.x + Math.cos(rot)*innerR, p.y + Math.sin(rot)*innerR); rot += step;
+          }
+          ctx.closePath(); ctx.fill();
         }
-        ctx.closePath(); ctx.fill();
       });
     }
 
@@ -439,17 +518,36 @@
     function drawAimLine() {
       const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y;
       const angle = Math.atan2(dy, dx), dist = Math.hypot(dx, dy);
-      const power = Math.min(dist, Math.min(W,H)*0.4)/(Math.min(W,H)*0.4);
+      const maxDist = Math.min(W,H)*0.4;
+      const power = Math.min(dist, maxDist) / maxDist;
       const len = power * 120;
-      
-      ctx.setLineDash([10, 5]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.moveTo(selectedPiece.x, selectedPiece.y);
-      ctx.lineTo(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len);
-      ctx.stroke(); ctx.setLineDash([]);
-      
-      ctx.beginPath(); ctx.arc(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len, 6, 0, Math.PI*2);
-      ctx.fillStyle = '#fff'; ctx.fill();
-      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
+      const cancelRadius = selectedPiece.r * 2.5;
+
+      // Draw Cancel Zone
+      ctx.beginPath();
+      ctx.arc(selectedPiece.x, selectedPiece.y, cancelRadius, 0, Math.PI*2);
+      ctx.fillStyle = dist < cancelRadius ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.1)';
+      ctx.fill();
+      ctx.strokeStyle = dist < cancelRadius ? '#ef4444' : '#fff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (dist >= cancelRadius) {
+        let lineColor = '#fff';
+        if (power > 0.8) lineColor = '#ef4444'; // Red for full power
+        else if (power > 0.4) lineColor = '#facc15'; // Yellow for medium
+        
+        ctx.setLineDash([10, 5]); ctx.strokeStyle = lineColor; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(selectedPiece.x, selectedPiece.y);
+        ctx.lineTo(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len);
+        ctx.stroke(); ctx.setLineDash([]);
+        
+        ctx.beginPath(); ctx.arc(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len, 6, 0, Math.PI*2);
+        ctx.fillStyle = lineColor; ctx.fill();
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
+      }
     }
 
     function animate() {
@@ -512,7 +610,7 @@
                 if (receiver && pieces.includes(receiver) && receiver.team === currentTeam && receiver.id !== lastHitBy) {
                   if (!piecesPassedThisTurn.has(lastHitBy)) {
                     passTriggeredThisShot = true; passCount++; piecesPassedThisTurn.add(lastHitBy);
-                    repositionReceiverNearBall(receiver); showPass();
+                    repositionPasserNearGoal(shooter); showPass();
                   }
                 }
               }
@@ -522,15 +620,14 @@
       }
     }
 
-    function repositionReceiverNearBall(receiver) {
-      const g = getGoalMetrics();
-      const goalX = orientation === 'horizontal' ? (receiver.team === 'blue' ? W : 0) : W/2;
-      const goalY = orientation === 'horizontal' ? H/2 : (receiver.team === 'blue' ? 0 : H);
+    function repositionPasserNearGoal(passer) {
+      const goalX = orientation === 'horizontal' ? (passer.team === 'blue' ? W : 0) : W/2;
+      const goalY = orientation === 'horizontal' ? H/2 : (passer.team === 'blue' ? 0 : H);
       const dx = goalX - ball.x, dy = goalY - ball.y, angle = Math.atan2(dy, dx);
-      const offset = receiver.r * 3;
-      receiver.x = ball.x - Math.cos(angle)*offset; receiver.y = ball.y - Math.sin(angle)*offset;
-      receiver.x = Math.max(20, Math.min(W-20, receiver.x)); receiver.y = Math.max(20, Math.min(H-20, receiver.y));
-      receiver.vx = 0; receiver.vy = 0;
+      const offset = passer.r * 3.5;
+      passer.x = ball.x - Math.cos(angle)*offset; passer.y = ball.y - Math.sin(angle)*offset;
+      passer.x = Math.max(20, Math.min(W-20, passer.x)); passer.y = Math.max(20, Math.min(H-20, passer.y));
+      passer.vx = 0; passer.vy = 0;
     }
 
     function checkGoal() {
@@ -564,14 +661,55 @@
       if (phase !== 'idle' || currentTeam !== 'red') return;
       const my = pieces.filter(p => p.team === 'red');
       let bestPiece = my[0], bestScore = -Infinity, tx = 0, ty = 0;
+      let power = (Math.min(W, H)*MAX_POWER) * 0.8;
+      
+      const goalX = orientation === 'horizontal' ? 0 : W/2, goalY = orientation === 'horizontal' ? H/2 : H;
+      const ownGoalX = orientation === 'horizontal' ? W : W/2, ownGoalY = orientation === 'horizontal' ? H/2 : 0;
+      
       my.forEach(p => {
-        const goalX = orientation === 'horizontal' ? 0 : W/2, goalY = orientation === 'horizontal' ? H/2 : H;
-        const bdx = goalX - ball.x, bdy = goalY - ball.y, bdist = Math.hypot(bdx, bdy);
+        let bdx = goalX - ball.x, bdy = goalY - ball.y;
+        
+        if (aiDifficulty === 'hard') {
+           const distToOwnGoal = Math.hypot(ownGoalX - ball.x, ownGoalY - ball.y);
+           if (distToOwnGoal < Math.min(W,H)*0.3) {
+             bdx = ball.x - ownGoalX; bdy = ball.y - ownGoalY;
+           } else {
+             const g = getGoalMetrics();
+             const offset = g.gw * 0.35;
+             if (orientation === 'horizontal') bdy += (Math.random() > 0.5 ? offset : -offset);
+             else bdx += (Math.random() > 0.5 ? offset : -offset);
+           }
+        }
+        
+        const bdist = Math.hypot(bdx, bdy);
         const hx = ball.x - (bdx/bdist)*(ball.r+p.r), hy = ball.y - (bdy/bdist)*(ball.r+p.r);
-        const dx = hx - p.x, dy = hy - p.y, dist = Math.hypot(dx, dy);
-        let score = 1000/dist; if (score > bestScore) { bestScore = score; bestPiece = p; tx = dx; ty = dy; }
+        let dx = hx - p.x, dy = hy - p.y, dist = Math.hypot(dx, dy);
+        
+        let score = 1000/dist; 
+        
+        if (aiDifficulty === 'hard' && Math.random() < 0.2 && passCount < 2) {
+           const teammate = my.find(t => t !== p);
+           if (teammate) {
+               const passDx = teammate.x - ball.x, passDy = teammate.y - ball.y, pDist = Math.hypot(passDx, passDy);
+               const px = ball.x - (passDx/pDist)*(ball.r+p.r), py = ball.y - (passDy/pDist)*(ball.r+p.r);
+               dx = px - p.x; dy = py - p.y; dist = Math.hypot(dx, dy);
+               score = 2000/dist;
+           }
+        }
+        
+        if (score > bestScore) { bestScore = score; bestPiece = p; tx = dx; ty = dy; }
       });
-      executeShot(bestPiece, tx, ty, (Math.min(W, H)*MAX_POWER)*0.8);
+      
+      if (aiDifficulty === 'easy') {
+        power *= 0.6; // slightly less than medium
+        const angle = Math.atan2(ty, tx);
+        const offsetAngle = angle + (Math.random() * (50 * Math.PI/180) - (25 * Math.PI/180));
+        const dist = Math.hypot(tx, ty);
+        tx = Math.cos(offsetAngle) * dist;
+        ty = Math.sin(offsetAngle) * dist;
+      }
+      
+      executeShot(bestPiece, tx, ty, power);
     }
 
 
