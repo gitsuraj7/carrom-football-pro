@@ -1,0 +1,582 @@
+
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Carrom Football Pro — The Ultimate Sports Physics Game</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Experience the ultimate Carrom Football Pro edition. Play local 2-player or vs AI with realistic physics, strategic passing, and high-fidelity graphics.">
+  <meta name="keywords" content="Carrom Football, Sports Game, HTML5 Game, Physics Game, Multiplayer Game, AI Football, Carrom Pro">
+  <meta name="author" content="Antigravity Sports">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://football-carrom-pro.vercel.app/">
+  <meta property="og:title" content="Carrom Football Pro — Ultimate Edition">
+  <meta property="og:description" content="Play the most advanced carrom-style football game in your browser. Features 2-player local mode, 3 difficulty AI levels, and a strategic passing system.">
+  <meta property="og:image" content="https://raw.githubusercontent.com/itzzs/football/main/preview.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://football-carrom-pro.vercel.app/">
+  <meta property="twitter:title" content="Carrom Football Pro — Ultimate Edition">
+  <meta property="twitter:description" content="Realistic physics meets football in this ultimate carrom-style sports game.">
+  <meta property="twitter:image" content="https://raw.githubusercontent.com/itzzs/football/main/preview.png">
+
+  <!-- Mobile App Features -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/itzzs/football/main/icon.png">
+
+  <style>
+    :root {
+      --color-bg: #fff5f2; /* Light Whitey Salmon */
+      --color-board: #166534;
+      --color-board-dark: #14532d;
+      --color-blue: #4fc3f7; /* Light Blue */
+      --color-red: #ff8a65;  /* Coral/Salmon Red */
+      --color-text: #1e293b;
+      --font-sans: 'Outfit', 'Inter', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    
+    body { 
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-sans);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      overflow-x: hidden;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: 20px 0;
+    }
+
+    #app-container {
+      width: 100%;
+      max-width: 850px;
+      padding: 0 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 10px;
+    }
+
+    .pill-score {
+      background: #1e293b;
+      padding: 8px 24px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      border: 2px solid rgba(255,255,255,0.1);
+    }
+    .pill-label { font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+    .pill-value { font-size: 24px; font-weight: 900; }
+    .score-blue { color: var(--color-blue); }
+    .score-red { color: var(--color-red); }
+
+    #status-container { text-align: center; }
+    #status-msg { font-size: 16px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; color: #1e293b; }
+    #turn-indicator { font-size: 11px; font-weight: 700; color: rgba(0,0,0,0.5); text-transform: uppercase; }
+
+    #game-board-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 8px solid #1e293b;
+      background: #14532d;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      transition: padding-bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair; }
+
+    #controls { display: flex; justify-content: center; gap: 12px; margin-top: 10px; }
+    button {
+      background: #1e293b; border: none;
+      color: #fff; padding: 12px 24px; border-radius: 50px;
+      font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase;
+      box-shadow: 0 4px 0 #0f172a; transition: all 0.1s;
+    }
+    button:hover { transform: translateY(2px); box-shadow: 0 2px 0 #0f172a; }
+    button:active { transform: translateY(4px); box-shadow: 0 0 0 #0f172a; }
+    button.primary { background: #3b82f6; box-shadow: 0 4px 0 #1d4ed8; }
+
+    #pass-toast {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #1e293b; color: #fff; padding: 15px 30px; border-radius: 50px;
+      font-size: 20px; font-weight: 900; opacity: 0; transition: all 0.4s;
+      z-index: 1000; border: 4px solid var(--color-blue);
+    }
+
+    #menu-overlay {
+      position: absolute; inset: 0; background: rgba(255, 245, 242, 0.95);
+      z-index: 100; display: flex; align-items: center; justify-content: center; transition: opacity 0.5s;
+    }
+    #menu-card {
+      background: #fff; border: 6px solid #1e293b;
+      padding: 40px; border-radius: 32px; text-align: center; width: 90%; max-width: 400px;
+      box-shadow: 0 20px 0 #1e293b;
+    }
+    #menu-card h1 { font-size: 40px; font-weight: 900; color: #1e293b; text-transform: uppercase; margin-bottom: 20px; }
+    .menu-section { display: flex; flex-direction: column; gap: 12px; }
+    .ai-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    #menu-overlay.hidden { opacity: 0; pointer-events: none; }
+  </style>
+<style id="antigravity-scroll-lock-style">
+  html:root body.antigravity-scroll-lock {
+    overflow: hidden !important;
+  }
+</style><style>
+  body::-webkit-scrollbar {
+    display: none;
+  }
+  html::-webkit-scrollbar {
+    display: none;
+  }
+</style></head>
+<body class="antigravity-scroll-lock">
+
+  <div id="app-container">
+    <div id="header">
+      <div class="pill-score">
+        <span class="pill-label">P1</span>
+        <span class="pill-value score-blue" id="score-blue">0</span>
+      </div>
+      <div id="status-container">
+        <div id="status-msg" style="color: var(--color-blue);">P1'S TURN</div>
+        <div id="turn-indicator">DRAG TO SHOOT</div>
+      </div>
+      <div class="pill-score">
+        <span class="pill-label">P2/AI</span>
+        <span class="pill-value score-red" id="score-red">0</span>
+      </div>
+    </div>
+
+    <div id="game-board-wrapper" style="padding-bottom: 60%;">
+      <div id="pass-toast">EXTRA TURN!</div>
+      <div id="menu-overlay">
+        <div id="menu-card">
+          <h1>CARROM PRO</h1>
+          <div class="menu-section">
+            <button class="primary" style="width:100%;" onclick="startGame('pvp')">Local 2 Players</button>
+            <div style="font-size: 12px; color: #64748b; font-weight: 900; margin-top: 15px;">AI DIFFICULTY</div>
+            <div class="ai-buttons">
+              <button onclick="startGame('pva', 'easy')">Easy</button>
+              <button onclick="startGame('pva', 'medium')">Med</button>
+              <button onclick="startGame('pva', 'hard')">Hard</button>
+            </div>
+            <hr style="border:0; border-top:4px solid #f1f5f9; margin: 20px 0;">
+            <button onclick="toggleOrientation()" style="width:100%;">
+              Switch to <span id="toggle-label">Vertical</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <canvas id="game-canvas" width="1054" height="632"></canvas>
+    </div>
+
+    <div id="controls">
+      <button onclick="showMenu()">MENU</button>
+      <button onclick="toggleOrientation()">ROTATE</button>
+      <button onclick="resetGame()">RESET</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('game-board-wrapper');
+    const passToast = document.getElementById('pass-toast');
+    const menuOverlay = document.getElementById('menu-overlay');
+
+    const FRICTION = 0.980;
+    const RESTITUTION = 0.85;
+    const MAX_POWER = 0.28; 
+    const SPEED_SCALE = 0.04;
+
+    let W, H, PR;
+    let pieces = [];
+    let ball = { x: 0, y: 0, vx: 0, vy: 0 };
+    let scores = { blue: 0, red: 0 };
+    let currentTeam = 'blue';
+    let phase = 'idle'; 
+    let selectedPiece = null;
+    let mousePos = null;
+    let lastHitBy = null;
+    let ballHitByShooter = false;
+    let passTriggeredThisShot = false;
+    let passCount = 0;
+    let piecesPassedThisTurn = new Set();
+    
+    let gameMode = 'pvp';
+    let aiDifficulty = 'medium';
+    let orientation = 'horizontal'; 
+
+    function toggleOrientation() {
+      orientation = orientation === 'horizontal' ? 'vertical' : 'horizontal';
+      document.getElementById('toggle-label').textContent = orientation === 'horizontal' ? 'Vertical' : 'Horizontal';
+      resize(); resetPositions();
+    }
+
+    function resize() {
+      const containerW = wrapper.parentElement.getBoundingClientRect().width;
+      if (orientation === 'horizontal') {
+        wrapper.style.paddingBottom = '60%'; W = containerW; H = containerW * 0.6;
+      } else {
+        wrapper.style.paddingBottom = '150%'; W = containerW; H = containerW * 1.5;
+      }
+      PR = window.devicePixelRatio || 1;
+      canvas.width = W * PR; canvas.height = H * PR;
+      ctx.scale(PR, PR);
+      if (pieces.length === 0) initGame();
+      draw();
+    }
+
+    function startGame(mode, difficulty) {
+      gameMode = mode; if (difficulty) aiDifficulty = difficulty;
+      menuOverlay.classList.add('hidden'); initGame();
+    }
+
+    function showMenu() { menuOverlay.classList.remove('hidden'); }
+
+    function initGame() { scores = { blue: 0, red: 0 }; resetPositions(); }
+
+    function resetPositions() {
+      const pr = Math.min(W, H) * 0.062;
+      pieces = [];
+      if (orientation === 'horizontal') {
+        const bPos = [{x:0.2,y:0.5},{x:0.25,y:0.28},{x:0.25,y:0.72},{x:0.12,y:0.35},{x:0.12,y:0.65}];
+        bPos.forEach((p,i)=>pieces.push({x:W*p.x,y:H*p.y,vx:0,vy:0,r:pr,team:'blue',id:i}));
+        const rPos = [{x:0.8,y:0.5},{x:0.75,y:0.28},{x:0.75,y:0.72},{x:0.88,y:0.35},{x:0.88,y:0.65}];
+        rPos.forEach((p,i)=>pieces.push({x:W*p.x,y:H*p.y,vx:0,vy:0,r:pr,team:'red',id:i+5}));
+      } else {
+        const bPos = [{x:0.5,y:0.82},{x:0.28,y:0.75},{x:0.72,y:0.75},{x:0.35,y:0.88},{x:0.65,y:0.88}];
+        bPos.forEach((p,i)=>pieces.push({x:W*p.x,y:H*p.y,vx:0,vy:0,r:pr,team:'blue',id:i}));
+        const rPos = [{x:0.5,y:0.18},{x:0.28,y:0.25},{x:0.72,y:0.25},{x:0.35,y:0.12},{x:0.65,y:0.12}];
+        rPos.forEach((p,i)=>pieces.push({x:W*p.x,y:H*p.y,vx:0,vy:0,r:pr,team:'red',id:i+5}));
+      }
+      ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: Math.min(W, H) * 0.042 };
+      phase = 'idle'; currentTeam = 'blue'; passCount = 0; updateUI();
+    }
+
+    function updateUI() {
+      document.getElementById('score-blue').textContent = scores.blue;
+      document.getElementById('score-red').textContent = scores.red;
+      const status = document.getElementById('status-msg');
+      const indicator = document.getElementById('turn-indicator');
+      status.textContent = currentTeam === 'blue' ? "P1'S TURN" : (gameMode === 'pvp' ? "P2'S TURN" : "AI THINKING...");
+      status.style.color = currentTeam === 'blue' ? "var(--color-blue)" : "var(--color-red)";
+      indicator.textContent = phase === 'aiming' ? "READY TO SHOOT" : (passCount > 0 ? "COMBO PASS: " + passCount : "DRAG TO SHOOT");
+    }
+
+    function showPass() {
+      passToast.textContent = "PASS COMBO x" + passCount;
+      passToast.style.opacity = '1'; passToast.style.transform = 'translate(-50%, -60%)';
+      setTimeout(() => { passToast.style.opacity = '0'; passToast.style.transform = 'translate(-50%, -50%)'; }, 1500);
+    }
+
+    function getMouse(e) {
+      const rect = canvas.getBoundingClientRect();
+      let cx, cy;
+      if (e.touches && e.touches.length > 0) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+      else { cx = e.clientX; cy = e.clientY; }
+      return { x: cx - rect.left, y: cy - rect.top };
+    }
+
+    function handleInputDown(e) {
+      if (phase !== 'idle' || (gameMode === 'pva' && currentTeam === 'red')) return;
+      const m = getMouse(e);
+      const hit = pieces.find(p => p.team === currentTeam && Math.hypot(p.x - m.x, p.y - m.y) < p.r * 1.5);
+      if (hit) { selectedPiece = hit; mousePos = m; phase = 'aiming'; updateUI(); if (e.type === 'touchstart') e.preventDefault(); }
+    }
+
+    function handleInputMove(e) {
+      if (phase === 'aiming' && selectedPiece) { mousePos = getMouse(e); draw(); if (e.type === 'touchmove') e.preventDefault(); }
+    }
+
+    function handleInputUp(e) {
+      if (phase === 'aiming' && selectedPiece) {
+        const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y, d = Math.hypot(dx, dy);
+        if (d > 10) executeShot(selectedPiece, dx, dy, d); else phase = 'idle';
+        selectedPiece = null; updateUI();
+      }
+    }
+
+    canvas.addEventListener('mousedown', handleInputDown);
+    window.addEventListener('mousemove', handleInputMove);
+    window.addEventListener('mouseup', handleInputUp);
+    canvas.addEventListener('touchstart', handleInputDown, { passive: false });
+    canvas.addEventListener('touchmove', handleInputMove, { passive: false });
+    canvas.addEventListener('touchend', handleInputUp, { passive: false });
+
+    function executeShot(p, dx, dy, d) {
+      const pow = Math.min(d, Math.min(W,H) * 0.4) / (Math.min(W,H) * 0.4);
+      const spd = pow * W * SPEED_SCALE;
+      p.vx = (dx / d) * spd; p.vy = (dy / d) * spd;
+      phase = 'animating'; lastHitBy = p.id; ballHitByShooter = false; passTriggeredThisShot = false;
+      animate();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      drawField();
+      drawGoals();
+      drawPieces();
+      drawBall();
+      if (phase === 'aiming') drawAimLine();
+    }
+
+    function drawField() {
+      // Stripes
+      const stripeCount = 10;
+      const stripeW = orientation === 'horizontal' ? W / stripeCount : H / stripeCount;
+      for (let i = 0; i < stripeCount; i++) {
+        ctx.fillStyle = (i % 2 === 0) ? '#166534' : '#14532d';
+        if (orientation === 'horizontal') ctx.fillRect(i * stripeW, 0, stripeW, H);
+        else ctx.fillRect(0, i * stripeW, W, stripeW);
+      }
+
+      // Markings
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.strokeRect(5, 5, W-10, H-10);
+      
+      const cx = W/2, cy = H/2;
+      ctx.beginPath();
+      if (orientation === 'horizontal') { ctx.moveTo(cx, 5); ctx.lineTo(cx, H-5); }
+      else { ctx.moveTo(5, cy); ctx.lineTo(W-5, cy); }
+      ctx.stroke();
+
+      ctx.beginPath(); ctx.arc(cx, cy, Math.min(W,H)*0.15, 0, Math.PI*2); ctx.stroke();
+    }
+
+    function drawGoals() {
+      const g = getGoalMetrics();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      
+      if (orientation === 'horizontal') {
+        ctx.strokeRect(0, g.gy, g.gw, g.gh); ctx.strokeRect(W-g.gw, g.gy, g.gw, g.gh);
+      } else {
+        ctx.strokeRect(g.gx, 0, g.gw, g.gh); ctx.strokeRect(g.gx, H-g.gh, g.gw, g.gh);
+      }
+
+      // Pin Markers
+      ctx.fillStyle = '#fff';
+      g.bars.forEach(bar => {
+        ctx.beginPath(); ctx.arc(bar.x, bar.y, 8, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
+      });
+    }
+
+    function getGoalMetrics() {
+      const gw = W*0.08, gh = H*0.4, edge = 5;
+      if (orientation === 'horizontal') {
+        const gy = (H - gh)/2;
+        return { gw, gh, gy, bars: [{x:edge,y:gy},{x:edge,y:gy+gh},{x:W-edge,y:gy},{x:W-edge,y:gy+gh}] };
+      } else {
+        const vgw = W*0.4, vgh = H*0.08, gx = (W - vgw)/2;
+        return { gw:vgw, gh:vgh, gx, bars: [{x:gx,y:edge},{x:gx+vgw,y:edge},{x:gx,y:H-edge},{x:gx+vgw,y:H-edge}] };
+      }
+    }
+
+    function drawPieces() {
+      pieces.forEach(p => {
+        // Shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 4;
+        
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = p.team === 'blue' ? '#4fc3f7' : '#ff8a65'; ctx.fill();
+        
+        ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 4; ctx.stroke();
+
+        // Star Icon
+        ctx.fillStyle = '#1e293b';
+        const spikes = 5, outerR = p.r * 0.5, innerR = outerR * 0.4;
+        let rot = Math.PI/2*3, step = Math.PI/spikes;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y - outerR);
+        for(let i=0; i<spikes; i++){
+          ctx.lineTo(p.x + Math.cos(rot)*outerR, p.y + Math.sin(rot)*outerR); rot += step;
+          ctx.lineTo(p.x + Math.cos(rot)*innerR, p.y + Math.sin(rot)*innerR); rot += step;
+        }
+        ctx.closePath(); ctx.fill();
+      });
+    }
+
+    function drawBall() {
+      ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+      ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 3; ctx.stroke();
+
+      // Pattern
+      ctx.fillStyle = '#1e293b';
+      for(let i=0; i<5; i++){
+        const ang = (i/5)*Math.PI*2;
+        ctx.beginPath(); ctx.arc(ball.x + Math.cos(ang)*6, ball.y + Math.sin(ang)*6, 3, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, 3, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawAimLine() {
+      const dx = selectedPiece.x - mousePos.x, dy = selectedPiece.y - mousePos.y;
+      const angle = Math.atan2(dy, dx), dist = Math.hypot(dx, dy);
+      const power = Math.min(dist, Math.min(W,H)*0.4)/(Math.min(W,H)*0.4);
+      const len = power * 120;
+      
+      ctx.setLineDash([10, 5]); ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(selectedPiece.x, selectedPiece.y);
+      ctx.lineTo(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len);
+      ctx.stroke(); ctx.setLineDash([]);
+      
+      ctx.beginPath(); ctx.arc(selectedPiece.x + Math.cos(angle)*len, selectedPiece.y + Math.sin(angle)*len, 6, 0, Math.PI*2);
+      ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    function animate() {
+      let moving = false;
+      const all = [...pieces, ball];
+      all.forEach(o => {
+        o.x += o.vx; o.y += o.vy; o.vx *= FRICTION; o.vy *= FRICTION;
+        if (Math.abs(o.vx) < 0.1) o.vx = 0; if (Math.abs(o.vy) < 0.1) o.vy = 0;
+        if (o.vx !== 0 || o.vy !== 0) moving = true;
+        const edge = 5, g = getGoalMetrics(), isBall = o === ball;
+        if (orientation === 'horizontal') {
+          if (o.x-o.r < edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = edge+o.r; o.vx *= -RESTITUTION; } }
+          if (o.x+o.r > W-edge) { if (!isBall || !(o.y > g.gy && o.y < g.gy+g.gh)) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; } }
+          if (o.y-o.r < edge) { o.y = edge+o.r; o.vy *= -RESTITUTION; }
+          if (o.y+o.r > H-edge) { o.y = H-edge-o.r; o.vy *= -RESTITUTION; }
+        } else {
+          if (o.y-o.r < edge) { if (!isBall || !(o.x > g.gx && o.x < g.gx+g.gw)) { o.y = edge+o.r; o.vy *= -RESTITUTION; } }
+          if (o.y+o.r > H-edge) { if (!isBall || !(o.x > g.gx && o.x < g.gx+g.gw)) { o.y = H-edge-o.r; o.vy *= -RESTITUTION; } }
+          if (o.x-o.r < edge) { o.x = edge+o.r; o.vx *= -RESTITUTION; }
+          if (o.x+o.r > W-edge) { o.x = W-edge-o.r; o.vx *= -RESTITUTION; }
+        }
+      });
+      checkCollisions(); if (checkGoal()) return; draw();
+      if (moving) requestAnimationFrame(animate); else endTurn();
+    }
+
+    function checkCollisions() {
+      const all = [...pieces, ball];
+      const g = getGoalMetrics();
+      const bars = orientation === 'horizontal' ? 
+        [{x:g.gw,y:g.gy},{x:g.gw,y:g.gy+g.gh},{x:W-g.gw,y:g.gy},{x:W-g.gw,y:g.gy+g.gh}] :
+        [{x:g.gx,y:g.gh},{x:g.gx+g.gw,y:g.gh},{x:g.gx,y:H-g.gh},{x:g.gx+g.gw,y:H-g.gh}];
+
+      all.forEach(o => {
+        bars.forEach(b => {
+          const d = Math.hypot(o.x - b.x, o.y - b.y);
+          if (d < o.r + 6) {
+            const nx = (o.x - b.x)/d, ny = (o.y - b.y)/d;
+            o.x = b.x + nx*(o.r + 6.5); o.y = b.y + ny*(o.r + 6.5);
+            const dot = o.vx*nx + o.vy*ny;
+            if (dot < 0) { o.vx -= 2*dot*nx*RESTITUTION; o.vy -= 2*dot*ny*RESTITUTION; }
+          }
+        });
+      });
+
+      for (let i = 0; i < all.length; i++) {
+        for (let j = i + 1; j < all.length; j++) {
+          const a = all[i], b = all[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y), minD = a.r + b.r;
+          if (d < minD && d > 0) {
+            const nx = (b.x - a.x)/d, ny = (b.y - a.y)/d, overlap = (minD - d)/2;
+            a.x -= nx*overlap; a.y -= ny*overlap; b.x += nx*overlap; b.y += ny*overlap;
+            const relVx = b.vx-a.vx, relVy = b.vy-a.vy, dot = relVx*nx + relVy*ny;
+            if (dot < 0) { const imp = dot*RESTITUTION; a.vx += imp*nx; a.vy += imp*ny; b.vx -= imp*nx; b.vy -= imp*ny; }
+            if (phase === 'animating') {
+              const shooter = pieces.find(p => p.id === lastHitBy);
+              if ((a === shooter && b === ball) || (b === shooter && a === ball)) ballHitByShooter = true;
+              if (ballHitByShooter && !passTriggeredThisShot && passCount < 5) {
+                const receiver = (a === ball)?b:(b === ball?a:null);
+                if (receiver && pieces.includes(receiver) && receiver.team === currentTeam && receiver.id !== lastHitBy) {
+                  if (!piecesPassedThisTurn.has(lastHitBy)) {
+                    passTriggeredThisShot = true; passCount++; piecesPassedThisTurn.add(lastHitBy);
+                    repositionReceiverNearBall(receiver); showPass();
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function repositionReceiverNearBall(receiver) {
+      const g = getGoalMetrics();
+      const goalX = orientation === 'horizontal' ? (receiver.team === 'blue' ? W : 0) : W/2;
+      const goalY = orientation === 'horizontal' ? H/2 : (receiver.team === 'blue' ? 0 : H);
+      const dx = goalX - ball.x, dy = goalY - ball.y, angle = Math.atan2(dy, dx);
+      const offset = receiver.r * 3;
+      receiver.x = ball.x - Math.cos(angle)*offset; receiver.y = ball.y - Math.sin(angle)*offset;
+      receiver.x = Math.max(20, Math.min(W-20, receiver.x)); receiver.y = Math.max(20, Math.min(H-20, receiver.y));
+      receiver.vx = 0; receiver.vy = 0;
+    }
+
+    function checkGoal() {
+      const g = getGoalMetrics();
+      if (orientation === 'horizontal') {
+        if (ball.x < 0) { scores.red++; celebrate('AI/P2 Scored!'); return true; }
+        if (ball.x > W) { scores.blue++; celebrate('Player 1 Scored!'); return true; }
+      } else {
+        if (ball.y < 0) { scores.red++; celebrate('AI/P2 Scored!'); return true; }
+        if (ball.y > H) { scores.blue++; celebrate('Player 1 Scored!'); return true; }
+      }
+      return false;
+    }
+
+    function celebrate(msg) { document.getElementById('status-msg').textContent = msg; setTimeout(() => { resetPositions(); draw(); }, 1500); }
+
+    function endTurn() {
+      if (passTriggeredThisShot) {
+        phase = 'idle'; ballHitByShooter = false; passTriggeredThisShot = false;
+        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 600);
+      } else {
+        currentTeam = currentTeam === 'blue' ? 'red' : 'blue';
+        phase = 'idle'; ballHitByShooter = false; passTriggeredThisShot = false;
+        passCount = 0; piecesPassedThisTurn.clear();
+        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
+      }
+      updateUI();
+    }
+
+    function aiTurn() {
+      if (phase !== 'idle' || currentTeam !== 'red') return;
+      const my = pieces.filter(p => p.team === 'red');
+      let bestPiece = my[0], bestScore = -Infinity, tx = 0, ty = 0;
+      my.forEach(p => {
+        const goalX = orientation === 'horizontal' ? 0 : W/2, goalY = orientation === 'horizontal' ? H/2 : H;
+        const bdx = goalX - ball.x, bdy = goalY - ball.y, bdist = Math.hypot(bdx, bdy);
+        const hx = ball.x - (bdx/bdist)*(ball.r+p.r), hy = ball.y - (bdy/bdist)*(ball.r+p.r);
+        const dx = hx - p.x, dy = hy - p.y, dist = Math.hypot(dx, dy);
+        let score = 1000/dist; if (score > bestScore) { bestScore = score; bestPiece = p; tx = dx; ty = dy; }
+      });
+      executeShot(bestPiece, tx, ty, (Math.min(W, H)*MAX_POWER)*0.8);
+    }
+
+
+    function resetGame() { initGame(); draw(); }
+    window.addEventListener('resize', resize);
+    setTimeout(resize, 100);
+  </script>
+
+
+<div id="preact-border-shadow-host" popover="manual" style="border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; padding: 0px; margin: 0px; inset: 0px; position: fixed; width: 100vw; height: 100vh; background: transparent; pointer-events: none;"></div></body></html>
