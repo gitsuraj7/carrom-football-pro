@@ -548,21 +548,26 @@
       const g = getGoalMetrics();
       const baseLw = isTouchDevice ? 4.5 : 3;
       
-      // Danger zone (faint colored zone inside mouth)
-      ctx.fillStyle = 'rgba(255,0,0,0.15)';
-      if (orientation === 'horizontal') {
-        ctx.fillRect(0, g.gy, g.gw, g.gh);
-        ctx.fillRect(W-g.gw, g.gy, g.gw, g.gh);
-      } else {
-        ctx.fillRect(g.gx, 0, g.gw, g.gh);
-        ctx.fillRect(g.gx, H-g.gh, g.gw, g.gh);
+      // Net Mesh Pattern (Realism)
+      function drawNet(x, y, w, h) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+        const step = 8;
+        for (let i = 0; i <= w; i += step) { ctx.beginPath(); ctx.moveTo(x+i, y); ctx.lineTo(x+i, y+h); ctx.stroke(); }
+        for (let i = 0; i <= h; i += step) { ctx.beginPath(); ctx.moveTo(x, y+i); ctx.lineTo(x+w, y+i); ctx.stroke(); }
+        ctx.restore();
       }
-      
-      // Goal lines
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = baseLw;
+
+      // Goal Area Visuals
       if (orientation === 'horizontal') {
+        drawNet(0, g.gy, g.gw, g.gh);
+        drawNet(W-g.gw, g.gy, g.gw, g.gh);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = baseLw;
         ctx.strokeRect(0, g.gy, g.gw, g.gh); ctx.strokeRect(W-g.gw, g.gy, g.gw, g.gh);
       } else {
+        drawNet(g.gx, 0, g.gw, g.gh);
+        drawNet(g.gx, H-g.gh, g.gw, g.gh);
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = baseLw;
         ctx.strokeRect(g.gx, 0, g.gw, g.gh); ctx.strokeRect(g.gx, H-g.gh, g.gw, g.gh);
       }
       
@@ -662,12 +667,25 @@
         // Team emblem dot
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.18, 0, Math.PI*2);
         ctx.fillStyle = p.team === 'blue' ? '#0d47a1' : '#b71c1c'; ctx.fill();
+        // Jersey stripes (Realism)
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(p.x - p.r*0.5, p.y); ctx.lineTo(p.x + p.r*0.5, p.y); ctx.stroke();
       });
       ctx.restore();
     }
 
     function drawBall() {
       ctx.save();
+      // Motion blur for fast ball
+      const speed = Math.hypot(ball.vx, ball.vy);
+      if (speed > 8) {
+        ctx.globalAlpha = 0.4;
+        for (let i = 1; i <= 3; i++) {
+            ctx.beginPath(); ctx.arc(ball.x - ball.vx*i*0.1, ball.y - ball.vy*i*0.1, ball.r, 0, Math.PI*2);
+            ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1.0;
       // Shadow
       ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10; ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 4;
       ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
@@ -753,15 +771,16 @@
           o.vx *= subFriction; o.vy *= subFriction;
           const edge = 5, isBall = o === ball;
           
-          // Piece mouth: physical impulse ejection (not teleport)
+          // Soft repulsive field in goal mouth for pieces (both goals)
           if (!isBall) {
              g.dangerZones.forEach(dz => {
                  if (o.x > dz.x1 && o.x < dz.x2 && o.y > dz.y1 && o.y < dz.y2) {
-                     const kick = Math.max(Math.hypot(o.vx,o.vy) * 1.2, 4);
+                     // Calculate center of goal mouth to push AWAY from it
+                     const force = 0.8;
                      if (orientation === 'horizontal') {
-                         if (dz.x1 < 0) { o.vx = kick; } else { o.vx = -kick; }
+                         if (dz.x1 < 0) o.vx += force; else o.vx -= force;
                      } else {
-                         if (dz.y1 < 0) { o.vy = kick; } else { o.vy = -kick; }
+                         if (dz.y1 < 0) o.vy += force; else o.vy -= force;
                      }
                  }
              });
@@ -865,13 +884,21 @@
     function checkGoal() {
       const g = getGoalMetrics();
       const margin = 10;
-      // Goal detection: trigger when ball center crosses the bar area
+      // Goal detection: must be within goal mouth AND past the line
       if (orientation === 'horizontal') {
-        if (ball.x < margin) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
-        if (ball.x > W - margin) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
+        if (ball.x < margin && ball.y > g.gy && ball.y < g.gy+g.gh) { 
+            scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; 
+        }
+        if (ball.x > W - margin && ball.y > g.gy && ball.y < g.gy+g.gh) { 
+            scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; 
+        }
       } else {
-        if (ball.y < margin) { scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; }
-        if (ball.y > H - margin) { scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; }
+        if (ball.y < margin && ball.x > g.gx && ball.x < g.gx+g.gw) { 
+            scores.blue++; currentTeam = 'red'; celebrate('BLUE SCORES!', 'RED KICKS OFF'); return true; 
+        }
+        if (ball.y > H - margin && ball.x > g.gx && ball.x < g.gx+g.gw) { 
+            scores.red++; currentTeam = 'blue'; celebrate('RED SCORES!', 'BLUE KICKS OFF'); return true; 
+        }
       }
       // Foul: check if any piece entered opponent's goal
       pieces.forEach(p => {
@@ -887,9 +914,16 @@
     }
 
     function celebrate(msg, nextMsg) { 
-        if (navigator.vibrate) { try { navigator.vibrate([20,10,20]); } catch(e){} }
+        if (navigator.vibrate) { try { navigator.vibrate([100,50,100]); } catch(e){} }
         document.getElementById('status-msg').textContent = msg; 
         document.getElementById('turn-indicator').textContent = nextMsg;
+        
+        // Visual "Juice": Screen shake
+        const wrapper = document.getElementById('game-board-wrapper');
+        wrapper.classList.remove('shake-anim');
+        void wrapper.offsetWidth; // trigger reflow
+        wrapper.classList.add('shake-anim');
+
         setTimeout(() => { resetPositions(); draw(); }, 1500); 
     }
 
