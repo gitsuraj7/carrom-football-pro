@@ -35,4 +35,4 @@ The project is hosted on Vercel and automatically scales to handle thousands of 
 
 ---
 
-Developed with ❤️ by **Antigravity Sports**.
+Developed with ❤️ by **Suraj Das**.
