@@ -169,7 +169,7 @@
         <div id="turn-indicator">AIM & SHOOT</div>
       </div>
       <div class="pill-score">
-        <span class="pill-label">P2/AI</span>
+        <span class="pill-label">P2</span>
         <span class="pill-value score-red" id="score-red">0</span>
       </div>
     </div>
@@ -188,13 +188,7 @@
         <div id="menu-card">
           <h1>CARROM PRO</h1>
           <div class="menu-section">
-            <button class="primary" style="width:100%; border-radius: 50px; font-size:14px;" onclick="startGame('pvp')">Local 2 Players</button>
-            <div style="font-size: 12px; color: #64748b; font-weight: 900; margin-top: 15px;">AI DIFFICULTY</div>
-            <div class="ai-buttons">
-              <button onclick="startGame('pva', 'easy')" style="border-radius: 50px; font-size:14px;">Easy</button>
-              <button onclick="startGame('pva', 'medium')" style="border-radius: 50px; font-size:14px;">Med</button>
-              <button onclick="startGame('pva', 'hard')" style="border-radius: 50px; font-size:14px;">Hard</button>
-            </div>
+            <button class="primary" style="width:100%; border-radius: 50px; font-size:14px;" onclick="startGame()">Start Match</button>
             <hr style="border:0; border-top:4px solid #f1f5f9; margin: 20px 0;">
             <button onclick="toggleOrientation()" style="width:100%; border-radius: 50px; font-size:14px;">
               Switch to <span id="toggle-label">Vertical</span>
@@ -245,9 +239,6 @@
     let passTriggeredThisShot = false;
     let passCount = 0;
     
-    
-    let gameMode = 'pvp';
-    let aiDifficulty = 'medium';
     let orientation = 'horizontal'; 
     let tossWinner = null;
     let reqFrameId = null;
@@ -295,8 +286,7 @@
       draw();
     }
 
-    function startGame(mode, difficulty) {
-      gameMode = mode; if (difficulty) aiDifficulty = difficulty;
+    function startGame() {
       menuOverlay.classList.add('hidden'); 
       scores = { blue: 0, red: 0 };
       runToss();
@@ -322,8 +312,8 @@
         tossCoin.classList.remove('flipping');
         const winnerIsP1 = Math.random() > 0.5;
         tossWinner = winnerIsP1 ? 'blue' : 'red';
-        tossCoin.textContent = winnerIsP1 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI');
-        tossResultText.textContent = (winnerIsP1 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI')) + ' KICKS OFF';
+        tossCoin.textContent = winnerIsP1 ? 'P1' : 'P2';
+        tossResultText.textContent = (winnerIsP1 ? 'P1' : 'P2') + ' KICKS OFF';
         
         setTimeout(() => {
           tossOverlay.classList.add('hidden');
@@ -359,26 +349,12 @@
       if (doSetup) {
         phase = 'setup';
         document.getElementById('btn-ready').style.display = 'block';
-        if (gameMode === 'pva') randomizeAIFormation();
       } else {
         phase = 'idle';
         document.getElementById('btn-ready').style.display = 'none';
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
       }
       updateUI();
       draw();
-    }
-
-    function randomizeAIFormation() {
-      pieces.filter(p => p.team === 'red').forEach(p => {
-        if (orientation === 'horizontal') {
-          p.x = W * (0.6 + Math.random() * 0.35);
-          p.y = H * (0.1 + Math.random() * 0.8);
-        } else {
-          p.x = W * (0.1 + Math.random() * 0.8);
-          p.y = H * (0.1 + Math.random() * 0.35);
-        }
-      });
     }
 
     function finishSetup() {
@@ -386,7 +362,6 @@
       document.getElementById('btn-ready').style.display = 'none';
       updateUI();
       draw();
-      if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
     }
 
     function updateUI() {
@@ -395,9 +370,8 @@
       const status = document.getElementById('status-msg');
       const indicator = document.getElementById('turn-indicator');
       
-      let teamName = currentTeam === 'blue' ? "P1" : (gameMode === 'pvp' ? "P2" : "AI");
+      let teamName = currentTeam === 'blue' ? "P1" : "P2";
       status.textContent = phase === 'setup' ? teamName + "'S SETUP" : teamName + "'S TURN";
-      if(phase !== 'setup' && currentTeam === 'red' && gameMode === 'pva') status.textContent = "AI THINKING...";
       
       status.style.color = currentTeam === 'blue' ? "var(--color-blue)" : "var(--color-red)";
       
@@ -426,7 +400,6 @@
     function handleInputDown(e) {
       if (e.cancelable) e.preventDefault();
       if (phase !== 'idle' && phase !== 'setup' && phase !== 'aiming') return;
-      if ((phase === 'idle' || phase === 'aiming') && gameMode === 'pva' && currentTeam === 'red') return;
       
       const m = getMouse(e);
       let closest = null, minD = Infinity;
@@ -922,91 +895,15 @@
     function endTurn() {
       if (passTriggeredThisShot) {
         phase = 'idle'; ballHitByShooter = false; passTriggeredThisShot = false;
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 600);
       } else {
         currentTeam = currentTeam === 'blue' ? 'red' : 'blue';
         phase = 'idle'; ballHitByShooter = false; passTriggeredThisShot = false;
         passCount = 0;
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
       }
       updateUI();
     }
 
-    function aiTurn() {
-      if (phase !== 'idle' || currentTeam !== 'red') return;
-      const my = pieces.filter(p => p.team === 'red');
-      const opp = pieces.filter(p => p.team === 'blue');
-      // Red attacks LEFT goal (x=0 in horizontal, y=H in vertical)
-      const goalX = orientation === 'horizontal' ? 0 : W/2;
-      const goalY = orientation === 'horizontal' ? H/2 : H;
-      const ownGoalX = orientation === 'horizontal' ? W : W/2;
-      const ownGoalY = orientation === 'horizontal' ? H/2 : 0;
-      
-      let bestPiece = null, bestDx = 0, bestDy = 0, bestScore = -Infinity;
-      
-      // Check if path from point A to B is blocked by any opponent piece
-      function isPathClear(ax, ay, bx, by, ignore) {
-        const dx = bx-ax, dy = by-ay, len = Math.hypot(dx,dy);
-        if (len < 1) return true;
-        const nx = dx/len, ny = dy/len;
-        for (const op of [...opp, ...my]) {
-          if (op === ignore) continue;
-          const tx = op.x-ax, ty = op.y-ay;
-          const proj = tx*nx + ty*ny;
-          if (proj < 0 || proj > len) continue;
-          const perpDist = Math.abs(tx*ny - ty*nx);
-          if (perpDist < op.r + ball.r) return false;
-        }
-        return true;
-      }
-      
-      my.forEach(p => {
-        const distToBall = Math.hypot(p.x - ball.x, p.y - ball.y);
-        // Ideal hit point: behind the ball relative to the opponent's goal
-        const bdx = goalX - ball.x, bdy = goalY - ball.y, bdist = Math.hypot(bdx, bdy);
-        const hitX = ball.x - (bdx/bdist)*(ball.r+p.r);
-        const hitY = ball.y - (bdy/bdist)*(ball.r+p.r);
-        let dx = hitX - p.x, dy = hitY - p.y, dist = Math.hypot(dx, dy);
-        
-        let score = 500 / (dist + 1); // Closer pieces are better
-        
-        // Bonus if clear shot to goal through ball
-        if (isPathClear(p.x, p.y, ball.x, ball.y, p)) score += 300;
-        if (isPathClear(ball.x, ball.y, goalX, goalY, p)) score += 200;
-        
-        // Hard AI: defensive awareness
-        if (aiDifficulty === 'hard' || aiDifficulty === 'medium') {
-          const ballToOwnGoal = Math.hypot(ball.x - ownGoalX, ball.y - ownGoalY);
-          if (ballToOwnGoal < Math.min(W,H)*0.3) {
-            // Ball is near our goal — clear it away
-            const clearDx = ball.x - ownGoalX, clearDy = ball.y - ownGoalY;
-            const clearDist = Math.hypot(clearDx, clearDy);
-            const clearHitX = ball.x - (clearDx/clearDist)*(ball.r+p.r);
-            const clearHitY = ball.y - (clearDy/clearDist)*(ball.r+p.r);
-            dx = clearHitX - p.x; dy = clearHitY - p.y; dist = Math.hypot(dx, dy);
-            score += 600; // Defensive priority
-          }
-        }
-        
-        if (score > bestScore) { bestScore = score; bestPiece = p; bestDx = dx; bestDy = dy; }
-      });
-      
-      let power = Math.hypot(bestDx, bestDy);
-      // Difficulty-based accuracy and power
-      if (aiDifficulty === 'easy') {
-        const angle = Math.atan2(bestDy, bestDx) + (Math.random() * 0.8 - 0.4);
-        bestDx = Math.cos(angle) * power; bestDy = Math.sin(angle) * power;
-        power *= 0.5;
-      } else if (aiDifficulty === 'medium') {
-        const angle = Math.atan2(bestDy, bestDx) + (Math.random() * 0.3 - 0.15);
-        bestDx = Math.cos(angle) * power; bestDy = Math.sin(angle) * power;
-        power *= 0.75;
-      } else {
-        power *= 0.9;
-      }
-      
-      executeShot(bestPiece, bestDx, bestDy, power);
-    }
+
 
     window.addEventListener('resize', resize);
     setTimeout(resize, 100);

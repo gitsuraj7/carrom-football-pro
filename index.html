@@ -110,39 +110,47 @@
     
     #toss-result-text { font-size: 32px; font-weight: 900; text-transform: uppercase; color: #1e293b; margin-top: 15px;}
 
-    @media (max-width: 480px) {
-      @keyframes impossibleGlow {
-        0% { box-shadow: 0 0 5px rgba(255,0,0,0.5); }
-        50% { box-shadow: 0 0 15px rgba(255,0,0,1); }
-        100% { box-shadow: 0 0 5px rgba(255,0,0,0.5); }
-      }
-      .ai-impossible { animation: impossibleGlow 2s infinite; border-color: #ef4444 !important; }
-
-      .ai-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-      .ai-btn { padding: 12px; border-radius: 50px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; background: #f1f5f9; color: #334155; }
-      .ai-btn:active { transform: scale(0.95); }
-      .ai-btn-impossible { background: #7f1d1d; color: #fca5a5; }
-
-      @keyframes pop {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.4); }
-        100% { transform: scale(1); }
-      }
-      .score-pop { animation: pop 0.4s ease-out; }
-      
-      @keyframes shake {
-        10%, 90% { transform: translate3d(-2px, 0, 0); }
-        20%, 80% { transform: translate3d(4px, 0, 0); }
-        30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
-        40%, 60% { transform: translate3d(8px, 0, 0); }
-      }
-      .shake-anim { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
-      #status-msg { margin: 0; }
-
       .pill-value { font-size: 20px; padding: 8px 16px; }
       .pill-label { font-size: 14px; padding: 8px 12px; }
       #controls button { padding: 12px; font-size: 24px; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
       #btn-ready { width: auto !important; border-radius: 50px !important; font-size: 16px !important; padding: 12px 24px !important; }
+    }
+
+    .footer-credit {
+      margin-top: 60px;
+      margin-bottom: 20px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      text-align: center;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: default;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      opacity: 0.7;
+    }
+    .footer-credit::before, .footer-credit::after {
+      content: '';
+      height: 1px;
+      width: 30px;
+      background: linear-gradient(to right, transparent, #cbd5e1);
+    }
+    .footer-credit::after {
+      background: linear-gradient(to left, transparent, #cbd5e1);
+    }
+    .footer-credit:hover {
+      color: #1e293b;
+      letter-spacing: 6px;
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+    .footer-credit span {
+      background: linear-gradient(45deg, #1e293b, #64748b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .footer-credit {
@@ -196,7 +204,7 @@
         <div id="turn-indicator">AIM & SHOOT</div>
       </div>
       <div class="pill-score">
-        <span class="pill-label">P2/AI</span>
+        <span class="pill-label">P2</span>
         <span class="pill-value score-red" id="score-red">0</span>
       </div>
     </div>
@@ -215,14 +223,7 @@
         <div id="menu-card">
           <h1>CARROM PRO</h1>
           <div class="menu-section">
-            <button class="primary" style="width:100%; border-radius: 50px; font-size:14px;" onclick="startGame('pvp')">Local 2 Players</button>
-            <div style="font-size: 12px; color: #64748b; font-weight: 900; margin-top: 15px;">AI DIFFICULTY</div>
-            <div class="ai-buttons">
-              <button class="ai-btn" onclick="startGame('pva', 'beginner')">Beginner</button>
-              <button class="ai-btn" onclick="startGame('pva', 'medium')">Medium</button>
-              <button class="ai-btn" onclick="startGame('pva', 'hard')">Hard</button>
-              <button class="ai-btn ai-btn-impossible" onclick="startGame('pva', 'impossible')">💀 Impossible</button>
-            </div>
+            <button class="primary" style="width:100%; border-radius: 50px; font-size:14px;" onclick="startGame()">Start Match</button>
             <hr style="border:0; border-top:4px solid #f1f5f9; margin: 20px 0;">
             <button onclick="toggleOrientation()" style="width:100%; border-radius: 50px; font-size:14px;">
               Switch to <span id="toggle-label">Vertical</span>
@@ -237,7 +238,7 @@
       <button id="btn-ready" onclick="finishSetup()" style="display:none; background: #10b981; box-shadow: 0 4px 0 #059669;">READY</button>
       <button id="btn-menu" onclick="showMenu()">⚙️</button>
       <button id="btn-rotate" onclick="toggleOrientation()">🔄</button>
-      <button id="btn-reset" onclick="resetGame()">🗑️</button>
+      <button id="btn-reset" onclick="resetPositions(true)">🗑️</button>
     </div>
 
     <div class="footer-credit">
@@ -260,6 +261,7 @@
     const MAX_POWER = 0.28; 
     const SPEED_SCALE = 0.04;
 
+    // Game State
     let W, H, PR;
     let pieces = [];
     let ball = { x: 0, y: 0, vx: 0, vy: 0 };
@@ -273,28 +275,11 @@
     let passTriggeredThisShot = false;
     let passCount = 0;
     
-    // AI & Advanced State
-    let gameMode = 'pvp';
-    let aiDifficulty = 'medium';
     let orientation = 'horizontal'; 
     let tossWinner = null;
     let reqFrameId = null;
     let goalkeeperClang = { blue: 0, red: 0 };
-    
     let piecesPassedThisTurn = [];
-    let counterAttackMode = false;
-    let humanGoalsLast3 = [];
-    
-    // Debug Mode
-    let aiDebugMode = false;
-    let aiDebugState = { targetX: null, targetY: null, rayX1: null, rayY1: null, rayX2: null, rayY2: null, rayClear: false, state: '', score: 0 };
-    let debugKeyBuffer = '';
-
-    window.addEventListener('keydown', (e) => {
-      debugKeyBuffer += e.key.toUpperCase();
-      if (debugKeyBuffer.length > 5) debugKeyBuffer = debugKeyBuffer.substring(debugKeyBuffer.length - 5);
-      if (debugKeyBuffer === 'DEBUG') { aiDebugMode = !aiDebugMode; debugKeyBuffer = ''; }
-    });
 
     // --- AUDIO ENGINE (Synthetic) ---
     const AudioEngine = (() => {
@@ -361,8 +346,7 @@
       draw();
     }
 
-    function startGame(mode, difficulty) {
-      gameMode = mode; if (difficulty) aiDifficulty = difficulty;
+    function startGame() {
       menuOverlay.classList.add('hidden'); 
       scores = { blue: 0, red: 0 };
       runToss();
@@ -380,7 +364,7 @@
       tossResultText.textContent = 'COIN TOSS...';
       
       let flipInterval = setInterval(() => {
-        tossCoin.textContent = Math.random() > 0.5 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI');
+        tossCoin.textContent = Math.random() > 0.5 ? 'P1' : 'P2';
       }, 100);
 
       setTimeout(() => {
@@ -388,8 +372,8 @@
         tossCoin.classList.remove('flipping');
         const winnerIsP1 = Math.random() > 0.5;
         tossWinner = winnerIsP1 ? 'blue' : 'red';
-        tossCoin.textContent = winnerIsP1 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI');
-        tossResultText.textContent = (winnerIsP1 ? 'P1' : (gameMode === 'pvp' ? 'P2' : 'AI')) + ' KICKS OFF';
+        tossCoin.textContent = winnerIsP1 ? 'P1' : 'P2';
+        tossResultText.textContent = (winnerIsP1 ? 'P1' : 'P2') + ' KICKS OFF';
         
         setTimeout(() => {
           tossOverlay.classList.add('hidden');
@@ -420,45 +404,32 @@
       }
       ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: Math.min(W, H) * 0.042 };
       
-      passCount = 0; shotArrows = [];
+      passCount = 0; shotArrows = []; piecesPassedThisTurn = [];
       
       if (doSetup) {
         phase = 'setup';
+        currentTeam = 'blue'; 
         document.getElementById('btn-ready').style.display = 'block';
-        if (gameMode === 'pva') randomizeAIFormation();
       } else {
         phase = 'idle';
         document.getElementById('btn-ready').style.display = 'none';
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
       }
       updateUI();
       draw();
     }
 
-    function randomizeAIFormation() {
-      pieces.filter(p => p.team === 'red').forEach(p => {
-        if (orientation === 'horizontal') {
-          p.x = W * (0.6 + Math.random() * 0.35);
-          p.y = H * (0.1 + Math.random() * 0.8);
-        } else {
-          p.x = W * (0.1 + Math.random() * 0.8);
-          p.y = H * (0.1 + Math.random() * 0.35);
-        }
-      });
-    }
-
     function finishSetup() {
-      if (gameMode === 'pvp' && currentTeam === 'blue') {
+      if (currentTeam === 'blue') {
         currentTeam = 'red';
         updateUI();
         draw();
       } else {
         phase = 'idle';
-        currentTeam = tossWinner || 'blue'; // Reset to toss winner after setup
+        currentTeam = tossWinner || 'blue';
         document.getElementById('btn-ready').style.display = 'none';
+        passCount = 0; piecesPassedThisTurn = [];
         updateUI();
         draw();
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
       }
     }
 
@@ -468,9 +439,8 @@
       const status = document.getElementById('status-msg');
       const indicator = document.getElementById('turn-indicator');
       
-      let teamName = currentTeam === 'blue' ? "P1" : (gameMode === 'pvp' ? "P2" : "AI");
+      let teamName = currentTeam === 'blue' ? "P1" : "P2";
       status.textContent = phase === 'setup' ? teamName + "'S SETUP" : teamName + "'S TURN";
-      if(phase !== 'setup' && currentTeam === 'red' && gameMode === 'pva') status.textContent = "AI THINKING...";
       
       status.style.color = currentTeam === 'blue' ? "var(--color-blue)" : "var(--color-red)";
       
@@ -499,7 +469,6 @@
     function handleInputDown(e) {
       if (e.cancelable) e.preventDefault();
       if (phase !== 'idle' && phase !== 'setup' && phase !== 'aiming') return;
-      if ((phase === 'idle' || phase === 'aiming') && gameMode === 'pva' && currentTeam === 'red') return;
       
       const m = getMouse(e);
       let closest = null, minD = Infinity;
@@ -708,29 +677,6 @@
         ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 2; ctx.stroke();
       });
       ctx.restore();
-
-      // DEBUG OVERLAY (Hidden by default)
-      if (aiDebugMode) {
-        ctx.save();
-        // 1. Predicted Ball (Yellow Dot)
-        if (aiDebugState.targetX !== null) {
-          ctx.beginPath(); ctx.arc(aiDebugState.targetX, aiDebugState.targetY, ball.r, 0, Math.PI*2);
-          ctx.fillStyle = 'rgba(253, 224, 71, 0.5)'; ctx.fill();
-          ctx.strokeStyle = '#eab308'; ctx.lineWidth = 2; ctx.stroke();
-        }
-        // 2. Path Clear Ray (Green/Red Line)
-        if (aiDebugState.rayX1 !== null) {
-          ctx.beginPath(); ctx.moveTo(aiDebugState.rayX1, aiDebugState.rayY1); ctx.lineTo(aiDebugState.rayX2, aiDebugState.rayY2);
-          ctx.strokeStyle = aiDebugState.rayClear ? 'rgba(34, 197, 94, 0.8)' : 'rgba(239, 68, 68, 0.8)';
-          ctx.lineWidth = 3; ctx.setLineDash([5,5]); ctx.stroke();
-        }
-        // 3. AI State and Score
-        ctx.fillStyle = '#fff'; ctx.font = '900 16px "Inter", sans-serif';
-        ctx.shadowColor = '#000'; ctx.shadowBlur = 4;
-        const msg = `${aiDebugState.state} | Score: ${aiDebugState.score.toFixed(2)}`;
-        ctx.fillText(msg, 10, 30);
-        ctx.restore();
-      }
     }
 
     function getGoalMetrics() {
@@ -802,12 +748,6 @@
         // Jersey stripes (Realism)
         ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(p.x - p.r*0.5, p.y); ctx.lineTo(p.x + p.r*0.5, p.y); ctx.stroke();
-        
-        // Impossible AI Glow
-        if (aiDifficulty === 'impossible' && p.team === 'red') {
-          ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 3, 0, Math.PI*2);
-          ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)'; ctx.lineWidth = 2; ctx.stroke();
-        }
       });
       ctx.restore();
     }
@@ -1065,14 +1005,6 @@
         document.getElementById('status-msg').textContent = msg; 
         document.getElementById('turn-indicator').textContent = nextMsg;
         
-        if (msg.includes('BLUE SCORES')) {
-          humanGoalsLast3.push(1);
-          counterAttackMode = true;
-        } else {
-          humanGoalsLast3.push(0);
-        }
-        if (humanGoalsLast3.length > 3) humanGoalsLast3.shift();
-        
         // Scoreboard Pop
         const scoreEl = msg.includes('BLUE') ? document.getElementById('score-blue') : document.getElementById('score-red');
         scoreEl.classList.remove('score-pop');
@@ -1091,317 +1023,13 @@
     function endTurn() {
       if (passTriggeredThisShot) {
         phase = 'idle'; ballHitByShooter = false; passTriggeredThisShot = false;
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 600); // Pass chain delay
       } else {
         currentTeam = currentTeam === 'blue' ? 'red' : 'blue';
         phase = 'idle'; ballHitByShooter = false; passTriggeredThisShot = false;
         passCount = 0; piecesPassedThisTurn = [];
-        if (currentTeam === 'red' && gameMode === 'pva') setTimeout(aiTurn, 1000);
       }
       updateUI();
     }
-
-    // --- CORE MATH HELPERS ---
-    function angleBetween(x1, y1, x2, y2) { return Math.atan2(y2-y1, x2-x1); }
-    
-    function predictBall(steps) {
-      let sim = { x: ball.x, y: ball.y, vx: ball.vx, vy: ball.vy, r: ball.r };
-      for (let i=0; i<Math.min(steps, 200); i++) {
-        sim.x += sim.vx; sim.y += sim.vy;
-        sim.vx *= FRICTION; sim.vy *= FRICTION;
-        if (sim.x - sim.r < 0) { sim.x = sim.r; sim.vx = Math.abs(sim.vx); }
-        if (sim.x + sim.r > W) { sim.x = W - sim.r; sim.vx = -Math.abs(sim.vx); }
-        if (sim.y - sim.r < 0) { sim.y = sim.r; sim.vy = Math.abs(sim.vy); }
-        if (sim.y + sim.r > H) { sim.y = H - sim.r; sim.vy = -Math.abs(sim.vy); }
-      }
-      return {x: sim.x, y: sim.y};
-    }
-    
-    function isPathClear(x1, y1, x2, y2, excludeIds=[]) {
-      const dx = x2-x1, dy = y2-y1, segLen = Math.hypot(dx, dy);
-      if (segLen < 1) return true;
-      for (const p of pieces) {
-        if (excludeIds.includes(p.id)) continue;
-        const tx = p.x-x1, ty = p.y-y1;
-        const proj = (tx*dx + ty*dy) / segLen;
-        if (proj < 0 || proj > segLen) continue; // Past ends of segment
-        const dist = Math.abs((y2-y1)*p.x - (x2-x1)*p.y + x2*y1 - y2*x1) / segLen;
-        if (dist < p.r + 2) return false;
-      }
-      return true;
-    }
-    
-    function goalCorners() {
-      const g = getGoalMetrics();
-      if (orientation === 'horizontal') {
-        return [ {x:g.goalLine, y:g.gy+10}, {x:g.goalLine, y:g.gy+g.gh-10}, {x:W-g.goalLine, y:g.gy+10}, {x:W-g.goalLine, y:g.gy+g.gh-10} ];
-      } else {
-        return [ {x:g.gx+10, y:g.goalLine}, {x:g.gx+g.gw-10, y:g.goalLine}, {x:g.gx+10, y:H-g.goalLine}, {x:g.gx+g.gw-10, y:H-g.goalLine} ];
-      }
-    }
-    
-    function shotScore(piece, targetBall, goalTarget) {
-      const distScore = Math.max(0, 1 - (Math.hypot(piece.x - targetBall.x, piece.y - targetBall.y) / (Math.min(W,H)*0.8)));
-      let angleDiff = angleBetween(targetBall.x, targetBall.y, goalTarget.x, goalTarget.y) - angleBetween(piece.x, piece.y, targetBall.x, targetBall.y);
-      angleDiff = Math.abs((angleDiff + Math.PI) % (2 * Math.PI) - Math.PI);
-      const angleScore = Math.max(0, 1 - (angleDiff / Math.PI));
-      const clearScore = isPathClear(piece.x, piece.y, targetBall.x, targetBall.y, [piece.id]) ? 1 : 0.1;
-      return distScore*0.3 + angleScore*0.4 + clearScore*0.3;
-    }
-    
-    function computeHitPoint(piece, targetBall, goalTarget) {
-      const nx = goalTarget.x - targetBall.x, ny = goalTarget.y - targetBall.y;
-      const dist = Math.hypot(nx,ny);
-      if (dist === 0) return {x: targetBall.x, y: targetBall.y};
-      return { x: targetBall.x - (nx/dist)*(targetBall.r + piece.r), y: targetBall.y - (ny/dist)*(targetBall.r + piece.r) };
-    }
-    
-    function bankTarget(fromX, fromY, toX, toY) {
-      let bestPt = null, bestClear = -1;
-      const walls = [
-        {reflX: fromX, reflY: -toY, isY: true, wallVal: 0}, 
-        {reflX: fromX, reflY: 2*H - toY, isY: true, wallVal: H}, 
-        {reflX: -toX, reflY: fromY, isY: false, wallVal: 0}, 
-        {reflX: 2*W - toX, reflY: fromY, isY: false, wallVal: W} 
-      ];
-      for (const w of walls) {
-        let ix, iy;
-        if (w.isY) {
-          if (w.reflY - fromY === 0) continue;
-          const t = (w.wallVal - fromY) / (w.reflY - fromY);
-          ix = fromX + t * (w.reflX - fromX); iy = w.wallVal;
-          if (ix < 0 || ix > W) continue;
-        } else {
-          if (w.reflX - fromX === 0) continue;
-          const t = (w.wallVal - fromX) / (w.reflX - fromX);
-          ix = w.wallVal; iy = fromY + t * (w.reflY - fromY);
-          if (iy < 0 || iy > H) continue;
-        }
-        const clear1 = isPathClear(fromX, fromY, ix, iy, []);
-        const clear2 = isPathClear(ix, iy, toX, toY, []);
-        const score = (clear1?1:0) + (clear2?1:0);
-        if (score > bestClear) { bestClear = score; bestPt = {x:ix, y:iy}; }
-      }
-      return bestPt || {x: toX, y: toY};
-    }
-
-    // --- AI ALGORITHM REWRITE ---
-    function aiTurn() {
-      if (phase !== 'idle' || currentTeam !== 'red') return;
-      const my = pieces.filter(p => p.team === 'red');
-      if (my.length === 0) return;
-
-      const corners = goalCorners();
-      // Red attacks Left (x=0) or Bottom (y=H)
-      const opGoals = orientation === 'horizontal' ? [corners[0], corners[1]] : [corners[2], corners[3]];
-      
-      let bestPiece = my[0], targetPoint = {x: ball.x, y: ball.y}, power = 0.5, noise = 0, delay = 1000;
-      let stateLabel = 'SHOOT'; let finalScore = 0;
-      
-      // Execute the computed shot
-      function doShot() {
-        const dx = targetPoint.x - bestPiece.x, dy = targetPoint.y - bestPiece.y;
-        let angle = Math.atan2(dy, dx) + (Math.random() * noise * 2 - noise);
-        
-        // Pass system usage
-        piecesPassedThisTurn.push(bestPiece.id);
-        lastHitBy = bestPiece.id;
-        
-        const finalSpeed = power * MAX_POWER * (Math.min(W,H) / 800) * 800 * SPEED_SCALE;
-        bestPiece.vx = Math.cos(angle) * finalSpeed;
-        bestPiece.vy = Math.sin(angle) * finalSpeed;
-        
-        aiDebugState.rayX1 = bestPiece.x; aiDebugState.rayY1 = bestPiece.y;
-        aiDebugState.rayX2 = targetPoint.x; aiDebugState.rayY2 = targetPoint.y;
-        aiDebugState.rayClear = isPathClear(bestPiece.x, bestPiece.y, targetPoint.x, targetPoint.y, [bestPiece.id]);
-        aiDebugState.state = stateLabel; aiDebugState.score = finalScore;
-        
-        phase = 'animating';
-        reqFrameId = requestAnimationFrame(animate);
-      }
-
-      if (aiDifficulty === 'beginner') {
-        // BEGINNER
-        const predictedBall = predictBall(0);
-        aiDebugState.targetX = predictedBall.x; aiDebugState.targetY = predictedBall.y;
-        bestPiece = my.reduce((best, p) => Math.hypot(p.x - ball.x, p.y - ball.y) < Math.hypot(best.x - ball.x, best.y - ball.y) ? p : best, my[0]);
-        if (Math.random() < 0.3) bestPiece = my[Math.floor(Math.random() * my.length)];
-        const goalCenter = orientation === 'horizontal' ? {x: 0, y: H/2} : {x: W/2, y: H};
-        targetPoint = computeHitPoint(bestPiece, predictedBall, goalCenter);
-        noise = 0.35; power = 0.45 + Math.random() * 0.2; delay = 1400; stateLabel = 'BEGINNER SHOOT';
-        setTimeout(doShot, delay);
-        return;
-      }
-
-      if (aiDifficulty === 'medium') {
-        // MEDIUM
-        const predictedBall = predictBall(5);
-        aiDebugState.targetX = predictedBall.x; aiDebugState.targetY = predictedBall.y;
-        let bestScore = -1;
-        my.forEach(p => {
-            const goalCorner = Math.hypot(p.x - opGoals[0].x, p.y - opGoals[0].y) < Math.hypot(p.x - opGoals[1].x, p.y - opGoals[1].y) ? opGoals[0] : opGoals[1];
-            const score = shotScore(p, predictedBall, goalCorner);
-            if (score > bestScore) { bestScore = score; bestPiece = p; targetPoint = computeHitPoint(p, predictedBall, goalCorner); finalScore = score; }
-        });
-        if (Math.random() < 0.1 && my.length > 1) bestPiece = my[Math.floor(Math.random() * my.length)]; // Distraction
-        
-        // Basic Defense
-        if ((orientation === 'horizontal' && ball.x > W*0.6) || (orientation === 'vertical' && ball.y < H*0.4)) { // Own half (Red is Right/Top)
-            targetPoint = computeHitPoint(bestPiece, predictedBall, {x: orientation==='horizontal'?0:W/2, y: orientation==='horizontal'?H/2:H});
-            power = 0.8; stateLabel = 'DEFEND (MED)';
-        } else {
-            power = 0.65 + Math.random() * 0.2; stateLabel = 'SHOOT (MED)';
-        }
-        noise = 0.12; delay = 900;
-        setTimeout(doShot, delay);
-        return;
-      }
-
-      if (aiDifficulty === 'hard') {
-        // HARD
-        const predictedBall = predictBall(10);
-        aiDebugState.targetX = predictedBall.x; aiDebugState.targetY = predictedBall.y;
-        
-        // Danger Intercept
-        const pred8 = predictBall(8);
-        if ((orientation === 'horizontal' && pred8.x > W*0.8) || (orientation === 'vertical' && pred8.y < H*0.2)) {
-            bestPiece = my.reduce((best, p) => Math.hypot(p.x - pred8.x, p.y - pred8.y) < Math.hypot(best.x - pred8.x, best.y - pred8.y) ? p : best, my[0]);
-            targetPoint = {x: pred8.x, y: pred8.y};
-            power = 1.0; noise = 0.04; delay = 0; stateLabel = 'INTERCEPT (HARD)';
-            setTimeout(doShot, delay); return;
-        }
-
-        // Full Defense
-        if ((orientation === 'horizontal' && ball.x > W*0.65) || (orientation === 'vertical' && ball.y < H*0.35)) {
-            bestPiece = my.reduce((best, p) => Math.hypot(p.x - predictedBall.x, p.y - predictedBall.y) < Math.hypot(best.x - predictedBall.x, best.y - predictedBall.y) ? p : best, my[0]);
-            targetPoint = computeHitPoint(bestPiece, predictedBall, {x: orientation==='horizontal'?0:W/2, y: orientation==='horizontal'?H/2:H});
-            power = 1.0; noise = 0.04; delay = 450; stateLabel = 'DEFEND (HARD)';
-            setTimeout(doShot, delay); return;
-        }
-
-        let bestScore = -1;
-        my.forEach(p => {
-            const farCorner = Math.hypot(ball.x - opGoals[0].x, ball.y - opGoals[0].y) > Math.hypot(ball.x - opGoals[1].x, ball.y - opGoals[1].y) ? opGoals[0] : opGoals[1];
-            let score = shotScore(p, predictedBall, farCorner);
-            let hitPt = computeHitPoint(p, predictedBall, farCorner);
-            if (!isPathClear(p.x, p.y, hitPt.x, hitPt.y, [p.id])) {
-                const bTarget = bankTarget(p.x, p.y, hitPt.x, hitPt.y);
-                const bScore = shotScore(p, {x: bTarget.x, y: bTarget.y, r: ball.r}, farCorner); // Approximate score for bank
-                if (bScore > score) { score = bScore; hitPt = bTarget; }
-            }
-            if (score > bestScore) { bestScore = score; bestPiece = p; targetPoint = hitPt; finalScore = score; }
-        });
-
-        power = 0.82 + Math.random() * 0.13; noise = 0.04; delay = 450; stateLabel = 'SHOOT (HARD)';
-        setTimeout(doShot, delay); return;
-      }
-
-      if (aiDifficulty === 'impossible') {
-        // IMPOSSIBLE
-        const predictedBall = predictBall(15);
-        aiDebugState.targetX = predictedBall.x; aiDebugState.targetY = predictedBall.y;
-
-        // Counter Attack
-        if (counterAttackMode) {
-            bestPiece = my.reduce((best, p) => (orientation==='horizontal'?p.x<best.x:p.y>best.y) ? p : best, my[0]);
-            const farCorner = Math.hypot(ball.x - opGoals[0].x, ball.y - opGoals[0].y) > Math.hypot(ball.x - opGoals[1].x, ball.y - opGoals[1].y) ? opGoals[0] : opGoals[1];
-            targetPoint = computeHitPoint(bestPiece, predictedBall, farCorner);
-            power = 1.0; noise = 0.018; delay = 80; stateLabel = 'COUNTER ATTACK';
-            counterAttackMode = false;
-            setTimeout(doShot, delay); return;
-        }
-
-        // Prediction Intercept
-        const pred12 = predictBall(12);
-        if ((orientation === 'horizontal' && pred12.x > W*0.85) || (orientation === 'vertical' && pred12.y < H*0.15)) {
-            bestPiece = my.reduce((best, p) => Math.hypot(p.x - pred12.x, p.y - pred12.y) < Math.hypot(best.x - pred12.x, best.y - pred12.y) ? p : best, my[0]);
-            targetPoint = {x: pred12.x, y: pred12.y};
-            power = 1.0; noise = 0.018; delay = 180; stateLabel = 'INTERCEPT (IMP)';
-            setTimeout(doShot, delay); return;
-        }
-
-        // Adaptive Difficulty
-        noise = 0.018;
-        const hGoals = humanGoalsLast3.reduce((a,b)=>a+b,0);
-        if (hGoals >= 2) noise = 0.008; // Losing? Get accurate.
-        if (scores.red - scores.blue >= 3) noise = 0.03; // Winning big? Get sloppy.
-
-        const farCorner = Math.hypot(ball.x - opGoals[0].x, ball.y - opGoals[0].y) > Math.hypot(ball.x - opGoals[1].x, ball.y - opGoals[1].y) ? opGoals[0] : opGoals[1];
-        
-        let bestDirectScore = -1, bestDirectHitPt = null, bestDirectPiece = null;
-        my.forEach(p => {
-            if (piecesPassedThisTurn.includes(p.id)) return;
-            let score = shotScore(p, predictedBall, farCorner);
-            let hitPt = computeHitPoint(p, predictedBall, farCorner);
-            if (!isPathClear(p.x, p.y, hitPt.x, hitPt.y, [p.id])) {
-                const bTarget = bankTarget(p.x, p.y, hitPt.x, hitPt.y);
-                const bScore = shotScore(p, {x: bTarget.x, y: bTarget.y, r: ball.r}, farCorner);
-                if (bScore > score) { score = bScore; hitPt = bTarget; }
-            }
-            if (score > bestDirectScore) { bestDirectScore = score; bestDirectPiece = p; bestDirectHitPt = hitPt; }
-        });
-
-        // Passing Evaluation
-        let bestPassScore = -1, passPasser = null, passReceiver = null;
-        if (passCount < 3) {
-            my.forEach(A => {
-                if (piecesPassedThisTurn.includes(A.id)) return;
-                my.forEach(B => {
-                    if (A === B || piecesPassedThisTurn.includes(B.id)) return;
-                    if (isPathClear(A.x, A.y, B.x, B.y, [A.id, B.id])) {
-                        const B_shotScore = shotScore(B, predictedBall, farCorner);
-                        const A_directScore = shotScore(A, predictedBall, farCorner);
-                        if (B_shotScore > A_directScore + 0.18 && B_shotScore > bestPassScore) {
-                            bestPassScore = B_shotScore; passPasser = A; passReceiver = B;
-                        }
-                    }
-                });
-            });
-        }
-
-        if (bestPassScore > bestDirectScore && passPasser && passReceiver) {
-            bestPiece = passPasser;
-            targetPoint = computeHitPoint(passPasser, passReceiver, passReceiver); // Aim at B
-            power = 0.6; delay = 350; stateLabel = 'PASS (IMP)'; finalScore = bestPassScore;
-            setTimeout(doShot, delay); return;
-        }
-
-        // Direct / Bank 
-        if (bestDirectPiece) {
-            bestPiece = bestDirectPiece; targetPoint = bestDirectHitPt; finalScore = bestDirectScore;
-        } else {
-            bestPiece = my[0]; targetPoint = {x: ball.x, y: ball.y}; // Ultimate fallback
-        }
-        power = 0.9 + Math.random() * 0.1; delay = 180; stateLabel = 'SHOOT (IMP)';
-        setTimeout(doShot, delay); return;
-      }
-    }
-
-    // --- VERIFICATION CHECKLIST (All 60 points) ---
-    /*
-      VERIFY: Math Helpers added (angleBetween, predictBall, isPathClear, goalCorners, shotScore, computeHitPoint, bankTarget) - YES, line 1021+
-      VERIFY: predictBall capped at 200 steps - YES, line 1025
-      VERIFY: Beginner picks random piece (30%) - YES, line 1113
-      VERIFY: Beginner aims at goal center - YES, line 1115
-      VERIFY: Medium evaluates direct shots - YES, line 1125
-      VERIFY: Medium has basic defense - YES, line 1130
-      VERIFY: Hard has danger intercept - YES, line 1146
-      VERIFY: Hard has full defense - YES, line 1154
-      VERIFY: Hard evaluates bank shots - YES, line 1165
-      VERIFY: Impossible has Counter Attack - YES, line 1184
-      VERIFY: Impossible has Prediction Intercept - YES, line 1193
-      VERIFY: Impossible Rubber-band logic - YES, line 1201
-      VERIFY: Impossible evaluates Pass Chain - YES, line 1219
-      VERIFY: Impossible passes if B > A+0.18 - YES, line 1226
-      VERIFY: DEBUG mode toggled via keyboard - YES, line 234
-      VERIFY: DEBUG mode displays predicted ball - YES, line 673
-      VERIFY: DEBUG mode displays ray clear line - YES, line 679
-      VERIFY: Menu UI updated to Beginner, Medium, Hard, Impossible - YES, line 171
-      VERIFY: Impossible button styling added - YES, line 120
-      VERIFY: Impossible Red Glow on pieces - YES, line 741
-      VERIFY: humanGoalsLast3 tracked in celebrate - YES, line 997
-      VERIFY: piecesPassedThisTurn cleared in endTurn - YES, line 1016
-    */
 
     window.addEventListener('resize', resize);
     setTimeout(resize, 100);
