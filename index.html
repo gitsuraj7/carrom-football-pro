@@ -197,8 +197,8 @@
       <canvas id="game-canvas" style="touch-action: none;"></canvas>
     </div>
 
-    <div id="controls">
       <button id="btn-ready" onclick="finishSetup()" style="display:none; background: #10b981; box-shadow: 0 4px 0 #059669;">READY</button>
+      <button id="btn-music" onclick="MusicEngine.toggle()">🎵</button>
       <button id="btn-menu" onclick="showMenu()">⚙️</button>
       <button id="btn-rotate" onclick="toggleOrientation()">🔄</button>
       <button id="btn-reset" onclick="resetPositions(true)">🗑️</button>
@@ -264,16 +264,53 @@
           play(400, 'square', 0.5, 0.1);
           setTimeout(() => play(500, 'square', 0.5, 0.1), 100);
           setTimeout(() => play(600, 'square', 0.8, 0.15), 200);
+        },
+        resume: () => { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+      };
+    })();
+
+    const MusicEngine = (() => {
+      const tracks = ["Neon Championship Final (Version 1).mp3", "Neon Championship Final (Version 2).mp3"];
+      let currentIdx = 0;
+      let audio = new Audio();
+      let isPlaying = false;
+      let hasStarted = false;
+
+      audio.addEventListener('ended', () => {
+        currentIdx = (currentIdx + 1) % tracks.length;
+        audio.src = tracks[currentIdx];
+        audio.play();
+      });
+
+      return {
+        init: () => {
+          if (hasStarted) return;
+          audio.src = tracks[currentIdx];
+          audio.volume = 0.4;
+          audio.play().then(() => {
+            isPlaying = true; hasStarted = true;
+            document.getElementById('btn-music').textContent = '🔊';
+          }).catch(() => {});
+        },
+        toggle: () => {
+          if (!hasStarted) { MusicEngine.init(); return; }
+          if (isPlaying) { audio.pause(); isPlaying = false; document.getElementById('btn-music').textContent = '🔈'; }
+          else { audio.play(); isPlaying = true; document.getElementById('btn-music').textContent = '🔊'; }
         }
       };
     })();
 
+    window.addEventListener('click', () => { AudioEngine.resume(); MusicEngine.init(); }, { once: true });
+    window.addEventListener('touchstart', () => { AudioEngine.resume(); MusicEngine.init(); }, { once: true });
+
     const isTouchDevice = navigator.maxTouchPoints > 0;
     if (isTouchDevice && window.innerWidth <= 480) {
+      document.getElementById('btn-music').textContent = '🎵';
       document.getElementById('btn-menu').textContent = '⚙️';
       document.getElementById('btn-rotate').textContent = '🔄';
       document.getElementById('btn-reset').textContent = '🗑️';
     } else {
+      document.getElementById('btn-music').textContent = 'MUSIC';
       document.getElementById('btn-menu').textContent = 'MENU';
       document.getElementById('btn-rotate').textContent = 'ROTATE';
       document.getElementById('btn-reset').textContent = 'RESET';
