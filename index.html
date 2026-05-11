@@ -109,48 +109,11 @@
     @keyframes coinFlip { 0% { transform: scaleY(1); } 100% { transform: scaleY(0.1); } }
     
     #toss-result-text { font-size: 32px; font-weight: 900; text-transform: uppercase; color: #1e293b; margin-top: 15px;}
-
+    @media (max-width: 480px) {
       .pill-value { font-size: 20px; padding: 8px 16px; }
       .pill-label { font-size: 14px; padding: 8px 12px; }
       #controls button { padding: 12px; font-size: 24px; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
       #btn-ready { width: auto !important; border-radius: 50px !important; font-size: 16px !important; padding: 12px 24px !important; }
-    }
-
-    .footer-credit {
-      margin-top: 60px;
-      margin-bottom: 20px;
-      font-size: 10px;
-      font-weight: 900;
-      letter-spacing: 4px;
-      color: #94a3b8;
-      text-transform: uppercase;
-      text-align: center;
-      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      cursor: default;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      opacity: 0.7;
-    }
-    .footer-credit::before, .footer-credit::after {
-      content: '';
-      height: 1px;
-      width: 30px;
-      background: linear-gradient(to right, transparent, #cbd5e1);
-    }
-    .footer-credit::after {
-      background: linear-gradient(to left, transparent, #cbd5e1);
-    }
-    .footer-credit:hover {
-      color: #1e293b;
-      letter-spacing: 6px;
-      opacity: 1;
-      transform: translateY(-2px);
-    }
-    .footer-credit span {
-      background: linear-gradient(45deg, #1e293b, #64748b);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
     }
 
     .footer-credit {
